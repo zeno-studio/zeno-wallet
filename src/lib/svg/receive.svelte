@@ -1,0 +1,5 @@
+<script lang="ts">
+    const { class: className }: { class: string } = $props();
+</script>
+
+<svg xmlns="http://www.w3.org/2000/svg" class={className} viewBox="0 0 28 28" fill="none"><rect x="4.25" y="4.25" width="7.5" height="7.5" rx="1.75" stroke="currentColor" stroke-width="2.5"/><rect x="16.25" y="4.25" width="7.5" height="7.5" rx="1.75" stroke="currentColor" stroke-width="2.5"/><rect x="4.25" y="16.25" width="7.5" height="7.5" rx="1.75" stroke="currentColor" stroke-width="2.5"/><rect x="15" y="15" width="4" height="4" rx="1" fill="currentColor"/><rect x="21" y="21" width="4" height="4" rx="1" fill="currentColor"/><rect x="21" y="15" width="4" height="4" rx="1" fill="currentColor"/><rect x="15" y="21" width="4" height="4" rx="1" fill="currentColor"/><rect x="7" y="7" width="2" height="2" fill="currentColor"/><rect x="7" y="19" width="2" height="2" fill="currentColor"/><rect x="19" y="7" width="2" height="2" fill="currentColor"/></svg>

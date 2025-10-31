@@ -10,12 +10,17 @@
     "strict": true,
     "moduleResolution": "bundler",
     "module": "esnext",
-    "types": ["svelte", "vite/client"]
+    "types": ["svelte", "vite/client"],
+    "baseUrl": ".",
+    "paths": {
+      "$lib/*": ["src/lib/*"]
+    },
+    "noEmit": true
   },
   "include": [
-    "src",
-    "vite.config.*",
-    "svelte.config.*",
-    "tsconfig.json"
+    "src"
+  ],
+  "exclude": [
+    "node_modules"
   ]
 }

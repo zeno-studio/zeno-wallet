@@ -12,13 +12,15 @@
   "app": {
     "windows": [
       {
-        "title": "zeno-wallet",
+        "title": "zeno wallet",
         "width": 800,
-        "height": 600
+        "height": 600,
+        "devtools": false,
+        "transparent": false
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
     }
   },
   "bundle": {
@@ -31,5 +33,10 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "sql": {
+      "preload": ["sqlite:wallet.db"]
+    }
   }
 }

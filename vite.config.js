@@ -6,12 +6,13 @@ export default defineConfig({
   plugins: [svelte()],
   clearScreen: false,
   resolve: {
-		alias: {
-			$lib: path.resolve('./src/lib')
-		}
-	},
+    alias: {
+      $lib: path.resolve('./src/lib')
+    }
+  },
   server: {
     port: 1420,
     strictPort: true,
   },
+  /// <reference types="vite/client" />
 });

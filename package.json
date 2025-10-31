@@ -1,31 +1,31 @@
 {
   "name": "zeno-wallet",
-  "version": "0.1.0",
-  "description": "",
+  "private": true,
+  "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite dev",
+    "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+    "check": "svelte-check --tsconfig ./tsconfig.json && tsc --noEmit -p tsconfig.node.json",
     "tauri": "tauri"
   },
-  "license": "MIT",
   "dependencies": {
-    "@tauri-apps/api": "^2.9.0",
-    "@tauri-apps/plugin-barcode-scanner": "~2.4.0",
-    "@tauri-apps/plugin-http": "~2.5.2",
-    "@tauri-apps/plugin-os": "~2.3.1",
-    "@tauri-apps/plugin-sql": "~2.3.0"
+    "@tauri-apps/api": "^2.0.0",
+    "@tauri-apps/plugin-barcode-scanner": "^2.0.0",
+    "@tauri-apps/plugin-dialog": "^2.0.0",
+    "@tauri-apps/plugin-os": "^2.0.0",
+    "@tauri-apps/plugin-sql": "^2.0.0",
+    "html5-qrcode": "^2.3.8",
+    "svelte": "^5.0.0"
   },
   "devDependencies": {
-    "@sveltejs/vite-plugin-svelte": "^5.1.1",
-    "@tauri-apps/cli": "^2.9.1",
-    "autoprefixer": "^10.4.21",
-    "svelte": "^5.41.4",
-    "typescript": "~5.6.3",
-    "vite": "^6.4.1"
+    "@sveltejs/vite-plugin-svelte": "^3.0.0",
+    "@tsconfig/svelte": "^5.0.4",
+    "svelte-check": "^3.6.0",
+    "tslib": "^2.6.2",
+    "typescript": "^5.2.2",
+    "vite": "^5.0.0"
   },
   "packageManager": "pnpm@10.19.0+sha512.c9fc7236e92adf5c8af42fd5bf1612df99c2ceb62f27047032f4720b33f8eacdde311865e91c411f2774f618d82f320808ecb51718bfa82c060c4ba7c76a32b8"
 }

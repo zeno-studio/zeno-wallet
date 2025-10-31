@@ -1,0 +1,543 @@
+/* Sakura.css v1.5.0
+ * Project: https://github.com/oxalorg/sakura/
+ */
+
+:root {
+	--font-size-base: 1.8rem;
+	--font-family-base: Basel, -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+	--polkadot: #FF2670;
+	--primary: #1d9bf0;
+	--secondary:rgb(249, 71, 133);
+	/* --secondary: #F0991D; */
+	--success: #52CC93;	
+	--critical: #F01E1D;	
+
+	--accent-yellow:rgba(255, 182, 72, 1);
+	--accent-yellow-back:rgba(241, 186, 0, 0.1);
+	--accent-cyan:rgba(18, 205, 217, 1);
+	--accent-cyan-back:rgba(18, 205, 217, 0.1);
+	--accent-green:rgba(34, 176, 125, 1);
+	--accent-green-back:rgba(34, 176, 125, 0.1);
+	--accent-purple:rgba(181, 72, 198, 1);
+	--accent-purple-back:rgba(181, 72, 198, 0.1);
+	--accent-blue:rgba(50, 167, 226, 1);
+	--accent-blue-back:rgba(50, 167, 226, 0.1);
+	--accent-pink:rgba(253, 86, 141, 1);
+	--accent-pink-back:rgba(253, 86, 141, 0.1);
+	--accent-orange:rgba(255, 135, 0, 1);
+	--accent-orange-back:rgba(255, 135, 0, 0.1);
+
+}
+
+[data-theme="light"] {
+	--border: #d2d2d2;
+	--shadow: rgba(255, 255, 255, 0.2);
+	--bg: #fff;
+	--bg1: #f9f9f9;
+	--bg2: #f2f2f2;
+	--bg3: #eeeeee;
+	--bg4: #e1e1e1;
+	--text: #696969;
+	--color: #131313;
+}
+
+[data-theme="dark"] {
+	--border: #404040;
+	--shadow: rgba(13, 13, 13, 0.5);
+	--bg: #131313;
+	--bg1: #1e1e1e;
+	--bg2: #252525;
+	--bg3: #333333;
+	--bg4: #404040;
+	--text: #adadad;
+	--color: #fff;
+}
+
+@view-transition {
+  navigation: auto;
+}
+
+
+
+/* Body */
+html {
+	font-size: 62.5%;
+	font-family: var(--font-family-base);
+}
+
+body {
+	font-size: var(--font-size-base);
+	line-height: 1.618;
+	color: var(--text);
+	background-color: var(--bg);
+}
+
+html, body {
+    overscroll-behavior-y: contain; 
+    height: 100%;
+    margin: 0;
+}
+
+body::-webkit-scrollbar {
+	display: none;
+}
+
+
+a,
+button,
+div,
+input,
+select,
+textarea,
+span {
+	font-family: var(--font-family-base);
+}
+
+
+a {
+	display: flex;
+	color: var(--text);
+	text-decoration: none;
+	align-items: center;
+}
+
+a:hover {
+	color: var(--color);
+}
+
+.avatar {
+	border-radius: 100%;
+	height: 2.5rem;
+	width: 2.5rem;
+}
+
+
+h1, h2, h3, h4, h5, h6 {
+	font-family: var(--font-family-base);
+	line-height: 1.1;
+	font-weight: 700;
+	margin-top: 3rem;
+	margin-bottom: 1.5rem;
+	overflow-wrap: break-word;
+	word-wrap: break-word;
+	-ms-word-break: break-all;
+	word-break:break-word;
+	color: var(--text);
+  }
+  
+  h1 {
+	font-size: 2.35em;
+  }
+  
+  h2 {
+	font-size: 2em;
+  }
+  
+  h3 {
+	font-size: 1.75em;
+  }
+  
+  h4 {
+	font-size: 1.5em;
+  }
+  
+  h5 {
+	font-size: 1.25em;
+  }
+  
+  h6 {
+	font-size: 1em;
+  }
+  
+  p {
+	margin-top: 0px;
+	margin-bottom: 2.5rem;
+  }
+
+ul {
+	padding-left: 1.4em;
+	margin-top: 0px;
+	margin-bottom: 2.5rem;
+}
+
+li {
+	margin-bottom: 0.4em;
+}
+
+
+
+table {
+	text-align: justify;
+	width: 100%;
+	border-collapse: collapse;
+	margin-bottom: 2rem;
+
+}
+
+td,
+th {
+	padding: 0.5em;
+
+}
+
+
+
+textarea,
+input {
+	display: block;
+	box-sizing: border-box;
+	color: var(--text);
+	padding: 1rem;
+	margin: 0px;
+
+	&:focus {
+		color: var(--color);
+		outline: 0
+	}
+
+	&:hover {
+		color: var(--color);
+	}
+
+}
+
+
+div {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+}
+
+.icon16 {
+	height: 1.6rem;
+	width: 1.6rem;
+	color: var(--text);
+	cursor: pointer;
+}
+
+
+.icon16 {
+	height: 2rem;
+	width: 2rem;
+	color: var(--text);
+	cursor: pointer;
+}
+
+.icon16A {
+	height: 2rem;
+	width: 2rem;
+	color: var(--text);
+	cursor: pointer;
+	&:hover {
+		transform: scale(1.1);
+		color: var(--color);
+	}
+}
+
+.icon2 {
+	height: 2rem;
+	width: 2rem;
+	cursor: pointer;
+	color: var(--text);
+}
+
+.icon2A {
+	height: 2rem;
+	width: 2rem;
+	color: var(--text);
+	cursor: pointer;
+	&:hover {
+		transform: scale(1.1);
+		color: var(--color);
+	}
+}
+
+.icon2S {
+	height: 2rem;
+	width: 2rem;
+	color: var(--success);
+}
+
+.icon16A{
+	height: 1.6rem;
+	width: 1.6rem;
+	color: var(--color);
+	cursor: pointer;
+}
+
+.icon16B {
+	height: 1.6rem;
+	width: 1.6rem;
+	color: var(--accent-blue);
+	cursor: pointer;
+}
+.icon16C {
+	height: 1.6rem;
+	width: 1.6rem;
+	color: var(--accent-cyan);
+	cursor: pointer;
+}
+
+.icon16Y {
+	height: 1.6rem;
+	width: 1.6rem;
+	color: var(--accent-yellow);
+	cursor: pointer;
+}
+
+.icon16G {
+	height: 1.6rem;
+	width: 1.6rem;
+	color: var(--accent-green);
+	cursor: pointer;
+}
+
+.icon16PP {
+	height: 1.6rem;
+	width: 1.6rem;
+	color: var(--accent-purple);
+	cursor: pointer;
+}
+.icon16PK {
+	height: 1.6rem;
+	width: 1.6rem;
+	color: var(--accent-pink);
+	cursor: pointer;
+}
+.icon16O {
+	height: 1.6rem;
+	width: 1.6rem;
+	color: var(--accent-orange);
+	cursor: pointer;
+}
+.icon16S {
+	height: 1.6rem;
+	width: 1.6rem;
+	color: var(--accent-grey);
+	cursor: pointer;
+}
+
+
+
+.icon24A {
+	height: 2.4rem;
+	width: 2.4rem;
+	cursor: pointer;
+
+	&:hover {
+		transform: scale(1.1);
+		color: var(--color);
+	}
+}
+
+
+.icon28-footer {
+	height: 2.8rem;
+	width: 2.8rem;
+	cursor: pointer;
+
+	&:hover {
+		transform: scale(1.1);
+		color: var(--primary);
+	}
+	&:active {
+		transform: scale(1.1);
+		color: var(--primary);
+	}
+}
+
+.icon3{
+	height: 3rem;
+	width: 3rem;
+	color: var(--text);
+	cursor: pointer;
+}
+
+.icon3Y{
+	height: 3rem;
+	width: 3rem;
+	color: var(--accent-yellow);
+	cursor: pointer;
+}
+
+.icon3B{
+	height: 3rem;
+	width: 3rem;
+	color: var(--accent-blue);
+	cursor: pointer;
+}
+
+.img24 {
+	width: 2.4rem;
+	height: 2.4rem;
+	padding: 0px;
+	margin-right: 1rem;
+}
+
+.title {
+		display: flex;
+		font-size: 2rem;
+		font-weight: 700;
+		color: var(--text);
+		margin-bottom: 3rem;
+}
+
+.label-s {
+	display: flex;
+	justify-content: flex-start;
+	font-size: 1.4rem;
+	font-weight: 500;
+
+}
+
+.label-m {
+	display: flex;
+	justify-content: flex-start;
+	font-size: 1.6rem;
+	font-weight: 500;
+}
+
+.label-l {
+	display: flex;
+	justify-content: flex-start;
+	font-size: 1.8rem;
+	font-weight: 500;
+}
+
+.label-xl {
+	display: flex;
+	justify-content: flex-start;
+	font-size: 2rem;
+	font-weight: 500;
+}
+
+.toast {
+	display: flex;
+	position: fixed;
+	z-index: 100;
+	right: 2rem;
+	bottom: 7rem;
+	padding: 0.5rem;
+	flex-direction: row;
+	justify-content: center;
+	border-radius: 1rem;
+	border-width: 1px;
+	height: 4rem;
+	background-color: var(--color-blossom1);
+}
+
+
+
+.close {
+	position: absolute;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	right: 0;
+	border: none;
+	background: none;
+	margin: 0;
+	padding: 0;
+
+}
+
+.backdrop {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100vw;
+	height: 100vh;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	background-color: rgba(0, 0, 0, 0.25);
+	backdrop-filter: blur( 1rem );
+	z-index: 1000;
+}
+
+
+.label-top {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 1.6rem;
+	font-weight: 600;
+	background: none;
+	height: 5rem;
+	border-radius: 1.6rem;
+	width: 100%;
+	box-sizing: border-box;
+	color: var(--text);
+	border: none;
+	margin-bottom: 2rem;
+}
+
+.top-back {
+	position: absolute;
+	left: 1rem;
+	display: flex;
+	align-items: center;
+	border: none;
+	background: none;
+}
+.arrowBack {
+	position: absolute;
+	left: 1rem;
+	display: flex;
+	align-items: center;
+	border: none;
+	background: none;
+}
+
+.setting-dividing2 {
+	display: flex;
+	width: 100%;
+	height: 1px;
+	background: var(--border);
+	border-radius: 1.6rem;
+	padding: 0;
+	border: none;
+}
+.input-password {
+		padding: 1.5rem 2rem;
+		font-size: 1.6rem;
+		width: 80%;
+		border-radius: 2rem;
+		background: var(--bg3);
+		border: 1px solid var(--border);
+		color: var(--text);
+
+		&:focus {
+			outline: 2px solid var(--accent-blue);
+			border: 1px solid var(--accent-blue);
+			color: var(--color);
+		}
+		&:active {
+			outline: 2px solid var(--accent-blue);
+			border: 1px solid var(--accent-blue);
+			color: var(--color);
+		}
+	}
+
+.scan-focus {
+	height: 20rem;
+	width: 20rem;
+	color: var(--color);
+	cursor: pointer;
+	animation: focus 1s infinite;
+}
+
+.empty-btn{
+	background: none;
+	border: none;
+	cursor: pointer;
+}
+
+
+@keyframes focus {
+	0%   {transform: scale(1);}
+	50%  {transform: scale(1.05);}
+	100% {transform: scale(1);}
+  }
+
