@@ -1,0 +1,10 @@
+<html>
+  <body style="margin:0;padding:0;">
+    <div style="background:#111;color:#fff;height:40px;display:flex;align-items:center;padding:0 10px;">
+      <button onclick="window.__TAURI__.invoke('dapp_go_back')">←</button>
+      <span id="url" style="flex:1;text-align:center;font-size:14px;">DApp</span>
+      <button onclick="window.__TAURI__.invoke('dapp_reload')">⟳</button>
+      <button onclick="window.__TAURI__.invoke('close_dapp')">✕</button>
+    </div>
+  </body>
+</html>

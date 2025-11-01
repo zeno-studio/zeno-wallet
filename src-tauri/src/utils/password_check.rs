@@ -11,9 +11,9 @@ use std::collections::HashSet;
 /// Output structure (returned as JSON to frontend)
 #[derive(Debug, Serialize)]
 pub struct PasswordResult {
-    pub score: u8,          // 0~4
-    pub entropy: f64,       // bits
-    pub crack_time: String, // human-readable
+    pub score: u8,             // 0~4
+    pub entropy: f64,          // bits
+    pub crack_time: String,    // human-readable
     pub warnings: Vec<String>, // e.g. ["too_short", "no_symbol", "repeated_seq"]
 }
 
@@ -170,18 +170,17 @@ fn has_keyboard_sequence(pw: &str) -> bool {
         .collect()
     });
     let lower = pw.to_lowercase();
-    SEQS.iter().any(|&s| {
-        lower.contains(s) || lower.contains(&s.chars().rev().collect::<String>())
-    })
+    SEQS.iter()
+        .any(|&s| lower.contains(s) || lower.contains(&s.chars().rev().collect::<String>()))
 }
 
 /// Detect common substrings like "123", "admin", "password"
 fn contains_common_substring(pw: &str) -> bool {
     static COMMON: Lazy<HashSet<&str>> = Lazy::new(|| {
         [
-            "pass", "word", "123", "abc", "qwe", "admin", "root", "user", "test",
-            "love", "2023", "2024", "2025", "letmein", "welcome", "dragon",
-            "football", "iloveyou", "shadow", "master",
+            "pass", "word", "123", "abc", "qwe", "admin", "root", "user", "test", "love", "2023",
+            "2024", "2025", "letmein", "welcome", "dragon", "football", "iloveyou", "shadow",
+            "master",
         ]
         .into_iter()
         .collect()
@@ -211,8 +210,8 @@ fn looks_like_pattern(pw: &str) -> bool {
 fn looks_like_word_combo(pw: &str) -> bool {
     static WORDS: Lazy<HashSet<&str>> = Lazy::new(|| {
         [
-            "dog", "cat", "sun", "moon", "star", "baby", "money", "love", "god",
-            "happy", "sad", "cool", "warm", "light", "dark", "rain", "snow",
+            "dog", "cat", "sun", "moon", "star", "baby", "money", "love", "god", "happy", "sad",
+            "cool", "warm", "light", "dark", "rain", "snow",
         ]
         .into_iter()
         .collect()
