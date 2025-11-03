@@ -18,6 +18,7 @@ pub struct PasswordResult {
 }
 
 /// Main password strength checker
+#[tauri::command]
 pub fn check_password(pw: &str) -> PasswordResult {
     let mut warnings = Vec::new();
     let len = pw.len() as f64;

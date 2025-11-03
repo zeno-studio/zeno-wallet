@@ -9,41 +9,44 @@ importers:
   .:
     dependencies:
       '@tauri-apps/api':
-        specifier: ^2.0.0
+        specifier: ^2.9.0
         version: 2.9.0
       '@tauri-apps/plugin-barcode-scanner':
-        specifier: ^2.0.0
-        version: 2.4.0
+        specifier: ^2.4.2
+        version: 2.4.2
       '@tauri-apps/plugin-opener':
         specifier: ^2.5.2
         version: 2.5.2
       '@tauri-apps/plugin-os':
-        specifier: ~2
-        version: 2.3.1
+        specifier: ~2.3.2
+        version: 2.3.2
       html5-qrcode:
         specifier: ^2.3.8
         version: 2.3.8
+      qr:
+        specifier: ^0.5.2
+        version: 0.5.2
       svelte:
-        specifier: ^5.0.0
-        version: 5.41.4
+        specifier: ^5.43.2
+        version: 5.43.2
     devDependencies:
       '@sveltejs/vite-plugin-svelte':
-        specifier: ^3.0.0
-        version: 3.1.2(svelte@5.41.4)(vite@5.4.21(@types/node@24.9.1))
+        specifier: ^3.1.2
+        version: 3.1.2(svelte@5.43.2)(vite@5.4.21(@types/node@24.9.1))
       '@tsconfig/svelte':
-        specifier: ^5.0.4
+        specifier: ^5.0.5
         version: 5.0.5
       svelte-check:
-        specifier: ^3.6.0
-        version: 3.8.6(postcss@8.5.6)(svelte@5.41.4)
+        specifier: ^3.8.6
+        version: 3.8.6(postcss@8.5.6)(svelte@5.43.2)
       tslib:
-        specifier: ^2.6.2
+        specifier: ^2.8.1
         version: 2.8.1
       typescript:
-        specifier: ^5.2.2
-        version: 5.6.3
+        specifier: ^5.9.3
+        version: 5.9.3
       vite:
-        specifier: ^5.0.0
+        specifier: ^5.4.21
         version: 5.4.21(@types/node@24.9.1)
 
 packages:
@@ -335,14 +338,14 @@ packages:
   '@tauri-apps/api@2.9.0':
     resolution: {integrity: sha512-qD5tMjh7utwBk9/5PrTA/aGr3i5QaJ/Mlt7p8NilQ45WgbifUNPyKWsA63iQ8YfQq6R8ajMapU+/Q8nMcPRLNw==}
 
-  '@tauri-apps/plugin-barcode-scanner@2.4.0':
-    resolution: {integrity: sha512-L+z7hejwlg3L7gApj1XburCL7pF4QbrU5rZDeCevGGqG85i0jXWUykU50v2/NI0XdLhFXYx3ERbXDPblH/BvBA==}
+  '@tauri-apps/plugin-barcode-scanner@2.4.2':
+    resolution: {integrity: sha512-7gKa5StXcvBzdT52fYRdq8TNiRq1ZvnjK+XYK847gnbYcoubTN00NOuR344rAgndWyTR9rtJAfQX7rvykLHnmw==}
 
   '@tauri-apps/plugin-opener@2.5.2':
     resolution: {integrity: sha512-ei/yRRoCklWHImwpCcDK3VhNXx+QXM9793aQ64YxpqVF0BDuuIlXhZgiAkc15wnPVav+IbkYhmDJIv5R326Mew==}
 
-  '@tauri-apps/plugin-os@2.3.1':
-    resolution: {integrity: sha512-ty5V8XDUIFbSnrk3zsFoP3kzN+vAufYzalJSlmrVhQTImIZa1aL1a03bOaP2vuBvfR+WDRC6NgV2xBl8G07d+w==}
+  '@tauri-apps/plugin-os@2.3.2':
+    resolution: {integrity: sha512-n+nXWeuSeF9wcEsSPmRnBEGrRgOy6jjkSU+UVCOV8YUGKb2erhDOxis7IqRXiRVHhY8XMKks00BJ0OAdkpf6+A==}
 
   '@tsconfig/svelte@5.0.5':
     resolution: {integrity: sha512-48fAnUjKye38FvMiNOj0J9I/4XlQQiZlpe9xaNPfe8vy2Y1hFBt8g1yqf2EGjVvHavo4jf2lC+TQyENCr4BJBQ==}
@@ -430,8 +433,8 @@ packages:
   esm-env@1.2.2:
     resolution: {integrity: sha512-Epxrv+Nr/CaL4ZcFGPJIYLWFom+YeV1DqMLHJoEd9SYRxNbaFruBwfEX/kkHUJf55j2+TUbmDcmuilbP1TmXHA==}
 
-  esrap@2.1.0:
-    resolution: {integrity: sha512-yzmPNpl7TBbMRC5Lj2JlJZNPml0tzqoqP5B1JXycNUwtqma9AKCO0M2wHrdgsHcy1WRW7S9rJknAMtByg3usgA==}
+  esrap@2.1.2:
+    resolution: {integrity: sha512-DgvlIQeowRNyvLPWW4PT7Gu13WznY288Du086E751mwwbsgr29ytBiYeLzAGIo0qk3Ujob0SDk8TiSaM5WQzNg==}
 
   fill-range@7.1.1:
     resolution: {integrity: sha512-YsGpe3WHLK8ZYi4tWDg2Jy3ebRz2rXowDxnld4bkQB00cc/1Zw9AWnC0i9ztDJitivtQvaI9KaLyKrc+hBW0yg==}
@@ -543,6 +546,10 @@ packages:
     resolution: {integrity: sha512-3Ybi1tAuwAP9s0r1UQ2J4n5Y0G05bJkpUIO0/bI9MhwmD70S5aTWbXGBwxHrelT+XM1k6dM0pk+SwNkpTRN7Pg==}
     engines: {node: ^10 || ^12 || >=14}
 
+  qr@0.5.2:
+    resolution: {integrity: sha512-91M3sVlA7xCFpkJtYX5xzVH8tDo4rNZ7jr8v+1CRgPVkZ4D+Vl9y8rtZWJ/YkEUM6U/h0FAu5W/JAK7iowOteA==}
+    engines: {node: '>= 20.19.0'}
+
   readdirp@3.6.0:
     resolution: {integrity: sha512-hOS089on8RduqdbhvQ5Z37A0ESjsqz6qnRcffsMU3495FuTdqSm+7bhJ29JvIOsBDEEnan5DPu9t3To9VRlMzA==}
     engines: {node: '>=8.10.0'}
@@ -625,8 +632,8 @@ packages:
       typescript:
         optional: true
 
-  svelte@5.41.4:
-    resolution: {integrity: sha512-sBrVmskY0eij5+CSSuMK1kOk1xSiRh0BRTEhUnxnd1x3p42GbQmm4rwq4WMD23rUG3QR53Nfv8kpaER3tV5F4A==}
+  svelte@5.43.2:
+    resolution: {integrity: sha512-ro1umEzX8rT5JpCmlf0PPv7ncD8MdVob9e18bhwqTKNoLjS8kDvhVpaoYVPc+qMwDAOfcwJtyY7ZFSDbOaNPgA==}
     engines: {node: '>=18'}
 
   to-regex-range@5.0.1:
@@ -636,8 +643,8 @@ packages:
   tslib@2.8.1:
     resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
 
-  typescript@5.6.3:
-    resolution: {integrity: sha512-hjcS1mhfuyi4WW8IWtjP7brDrG2cuDZukyrYrSauoXGNgx0S7zceP07adYkJycEr56BOUTNPzbInooiN3fn1qw==}
+  typescript@5.9.3:
+    resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
     engines: {node: '>=14.17'}
     hasBin: true
 
@@ -849,24 +856,24 @@ snapshots:
     dependencies:
       acorn: 8.15.0
 
-  '@sveltejs/vite-plugin-svelte-inspector@2.1.0(@sveltejs/vite-plugin-svelte@3.1.2(svelte@5.41.4)(vite@5.4.21(@types/node@24.9.1)))(svelte@5.41.4)(vite@5.4.21(@types/node@24.9.1))':
+  '@sveltejs/vite-plugin-svelte-inspector@2.1.0(@sveltejs/vite-plugin-svelte@3.1.2(svelte@5.43.2)(vite@5.4.21(@types/node@24.9.1)))(svelte@5.43.2)(vite@5.4.21(@types/node@24.9.1))':
     dependencies:
-      '@sveltejs/vite-plugin-svelte': 3.1.2(svelte@5.41.4)(vite@5.4.21(@types/node@24.9.1))
+      '@sveltejs/vite-plugin-svelte': 3.1.2(svelte@5.43.2)(vite@5.4.21(@types/node@24.9.1))
       debug: 4.4.3
-      svelte: 5.41.4
+      svelte: 5.43.2
       vite: 5.4.21(@types/node@24.9.1)
     transitivePeerDependencies:
       - supports-color
 
-  '@sveltejs/vite-plugin-svelte@3.1.2(svelte@5.41.4)(vite@5.4.21(@types/node@24.9.1))':
+  '@sveltejs/vite-plugin-svelte@3.1.2(svelte@5.43.2)(vite@5.4.21(@types/node@24.9.1))':
     dependencies:
-      '@sveltejs/vite-plugin-svelte-inspector': 2.1.0(@sveltejs/vite-plugin-svelte@3.1.2(svelte@5.41.4)(vite@5.4.21(@types/node@24.9.1)))(svelte@5.41.4)(vite@5.4.21(@types/node@24.9.1))
+      '@sveltejs/vite-plugin-svelte-inspector': 2.1.0(@sveltejs/vite-plugin-svelte@3.1.2(svelte@5.43.2)(vite@5.4.21(@types/node@24.9.1)))(svelte@5.43.2)(vite@5.4.21(@types/node@24.9.1))
       debug: 4.4.3
       deepmerge: 4.3.1
       kleur: 4.1.5
       magic-string: 0.30.21
-      svelte: 5.41.4
-      svelte-hmr: 0.16.0(svelte@5.41.4)
+      svelte: 5.43.2
+      svelte-hmr: 0.16.0(svelte@5.43.2)
       vite: 5.4.21(@types/node@24.9.1)
       vitefu: 0.2.5(vite@5.4.21(@types/node@24.9.1))
     transitivePeerDependencies:
@@ -874,7 +881,7 @@ snapshots:
 
   '@tauri-apps/api@2.9.0': {}
 
-  '@tauri-apps/plugin-barcode-scanner@2.4.0':
+  '@tauri-apps/plugin-barcode-scanner@2.4.2':
     dependencies:
       '@tauri-apps/api': 2.9.0
 
@@ -882,7 +889,7 @@ snapshots:
     dependencies:
       '@tauri-apps/api': 2.9.0
 
-  '@tauri-apps/plugin-os@2.3.1':
+  '@tauri-apps/plugin-os@2.3.2':
     dependencies:
       '@tauri-apps/api': 2.9.0
 
@@ -977,7 +984,7 @@ snapshots:
 
   esm-env@1.2.2: {}
 
-  esrap@2.1.0:
+  esrap@2.1.2:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.5
 
@@ -1074,6 +1081,8 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
+  qr@0.5.2: {}
+
   readdirp@3.6.0:
     dependencies:
       picomatch: 2.3.1
@@ -1134,15 +1143,15 @@ snapshots:
     dependencies:
       min-indent: 1.0.1
 
-  svelte-check@3.8.6(postcss@8.5.6)(svelte@5.41.4):
+  svelte-check@3.8.6(postcss@8.5.6)(svelte@5.43.2):
     dependencies:
       '@jridgewell/trace-mapping': 0.3.31
       chokidar: 3.6.0
       picocolors: 1.1.1
       sade: 1.8.1
-      svelte: 5.41.4
-      svelte-preprocess: 5.1.4(postcss@8.5.6)(svelte@5.41.4)(typescript@5.6.3)
-      typescript: 5.6.3
+      svelte: 5.43.2
+      svelte-preprocess: 5.1.4(postcss@8.5.6)(svelte@5.43.2)(typescript@5.9.3)
+      typescript: 5.9.3
     transitivePeerDependencies:
       - '@babel/core'
       - coffeescript
@@ -1154,23 +1163,23 @@ snapshots:
       - stylus
       - sugarss
 
-  svelte-hmr@0.16.0(svelte@5.41.4):
+  svelte-hmr@0.16.0(svelte@5.43.2):
     dependencies:
-      svelte: 5.41.4
+      svelte: 5.43.2
 
-  svelte-preprocess@5.1.4(postcss@8.5.6)(svelte@5.41.4)(typescript@5.6.3):
+  svelte-preprocess@5.1.4(postcss@8.5.6)(svelte@5.43.2)(typescript@5.9.3):
     dependencies:
       '@types/pug': 2.0.10
       detect-indent: 6.1.0
       magic-string: 0.30.21
       sorcery: 0.11.1
       strip-indent: 3.0.0
-      svelte: 5.41.4
+      svelte: 5.43.2
     optionalDependencies:
       postcss: 8.5.6
-      typescript: 5.6.3
+      typescript: 5.9.3
 
-  svelte@5.41.4:
+  svelte@5.43.2:
     dependencies:
       '@jridgewell/remapping': 2.3.5
       '@jridgewell/sourcemap-codec': 1.5.5
@@ -1181,7 +1190,7 @@ snapshots:
       axobject-query: 4.1.0
       clsx: 2.1.1
       esm-env: 1.2.2
-      esrap: 2.1.0
+      esrap: 2.1.2
       is-reference: 3.0.3
       locate-character: 3.0.0
       magic-string: 0.30.21
@@ -1193,7 +1202,7 @@ snapshots:
 
   tslib@2.8.1: {}
 
-  typescript@5.6.3: {}
+  typescript@5.9.3: {}
 
   undici-types@7.16.0:
     optional: true

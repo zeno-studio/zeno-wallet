@@ -27,9 +27,9 @@ fn get_db_path(app: &AppHandle) -> PathBuf {
 
 fn init_db_pool(app: &AppHandle) -> DbPool {
     let db_path = get_db_path(app);
-    std::fs::create_dir_all(db_path.parent().unwrap()).expect("Failed to create config dir");
+    let config_dir = db_path.parent().expect("Invalid db path");
+    std::fs::create_dir_all(config_dir).expect("Failed to create config dir");
     let manager = SqliteConnectionManager::file(&db_path);
-
     let pool = Pool::new(manager).expect("Failed to create SQLite pool");
     let mut conn = pool.get().unwrap();
 
