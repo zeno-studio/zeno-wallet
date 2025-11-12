@@ -1,14 +1,18 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 mod comm;
+mod error;
+mod constants;
+
 use std::sync::Mutex;
-use comm::db::init_db;
 use comm::i18n::I18nState;
 use comm::webview::{open_dapp, wallet_request};
+
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_os::init())
+        .plugin(comm::db::register_all_commands)
         .manage(Mutex::new(I18nState::new("en"))) // 默认语言
         .setup(|app| {
             init_db(app.handle());

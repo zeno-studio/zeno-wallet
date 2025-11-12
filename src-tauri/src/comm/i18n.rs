@@ -7,10 +7,10 @@ type LocaleMap = HashMap<String, serde_json::Value>;
 
 fn load_locale(lang: &str) -> LocaleMap {
     let raw = match lang {
-        "zh" => include_str!("../../src/lib/locales/zh.json"),
-        "en" => include_str!("../../src/lib/locales/en.json"),
+        "zh" => include_str!("../../../src/locales/zh.json"),
+        "en" => include_str!("../../../src/locales/en.json"),
         // 其它语言同理
-        _ => include_str!("../../src/lib/locales/en.json"), // fallback
+        _ => include_str!("../../../src/locales/en.json"), // fallback
     };
     serde_json::from_str(raw).expect("invalid locale json")
 }

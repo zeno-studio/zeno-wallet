@@ -5,6 +5,9 @@ import path from 'path';
 export default defineConfig({
   plugins: [svelte()],
   clearScreen: false,
+  esbuild: {
+    target: 'es2020'
+  },
   resolve: {
     alias: {
       $lib: path.resolve('./src/lib')

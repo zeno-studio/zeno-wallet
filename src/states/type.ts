@@ -13,7 +13,7 @@ export type AccessStatus = 'APPROVED' | 'DENIED';
 export type HexString = `0x${string}`;
 export type AddressType = 'EVM' | 'POLKADOT' | 'POST-QUANTUM'|'';
 export type KeyringType = 'secp256k1' | 'ed25519' | 'sr25519'|'secp256r1'|'';
-export type AccountType = 'local' | 'passkey' | 'hardware'|'';
+export type AccountType = 'local' | 'passkey' | 'hardware'|'airgap'|'';
 
 export interface Account {
 	name: string;

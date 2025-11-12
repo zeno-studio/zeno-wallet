@@ -1,6 +1,6 @@
 export * from "./constants";
 export * from "./db";
-export * from "./type";
+export * from "../states/type";
 
 
 
