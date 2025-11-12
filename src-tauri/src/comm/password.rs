@@ -19,7 +19,7 @@ pub struct PasswordResult {
 
 /// Main password strength checker
 #[tauri::command]
-pub fn check_password(pw: &str) -> PasswordResult {
+pub fn check_password_strength(pw: &str) -> PasswordResult {
     let mut warnings = Vec::new();
     let len = pw.len() as f64;
     let mut entropy = 0.0;
@@ -229,26 +229,26 @@ mod tests {
 
     #[test]
     fn test_strength_basic() {
-        let r = check_password("CorrectHorseBatteryStaple");
+        let r = check_password_strength("CorrectHorseBatteryStaple");
         assert!(r.score >= 3);
     }
 
     #[test]
     fn test_common() {
-        let r = check_password("123456");
+        let r = check_password_strength("123456");
         assert_eq!(r.score, 0);
         assert!(r.warnings.contains(&"common_substring".into()));
     }
 
     #[test]
     fn test_repeated() {
-        let r = check_password("aaaabbbb");
+        let r = check_password_strength("aaaabbbb");
         assert!(r.warnings.contains(&"repeated_seq".into()));
     }
 
     #[test]
     fn test_word_combo() {
-        let r = check_password("loveMoney2024");
+        let r = check_password_strength("loveMoney2024");
         assert!(r.warnings.contains(&"word_combo".into()));
     }
 }

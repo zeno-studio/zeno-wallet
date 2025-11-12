@@ -1,4 +1,5 @@
 use core::fmt;
+use tauri::ipc::InvokeError;
 
 #[derive(Debug)]
 pub enum AppError {
@@ -23,7 +24,18 @@ pub enum AppError {
     InvalidTypePrefix,
     ValueOverflow,
     DomainFallbackInvalid,
-
+    
+    // Database errors
+    DbNotInitialized,
+    DbColumnFamilyNotFound,
+    DbSerializationError(String),
+    DbDeserializationError(String),
+    DbWriteError(String),
+    DbReadError(String),
+    DbKeyNotFound,
+    
+    // Wallet Core errors
+    WalletCoreError(String),
 }
 
 impl fmt::Display for AppError {
@@ -49,6 +61,16 @@ impl fmt::Display for AppError {
             AppError::InvalidTypePrefix => write!(f, "invalid type prefix/suffix"),
             AppError::ValueOverflow => write!(f, "numeric value overflow"),
             AppError::DomainFallbackInvalid => write!(f, "invalid domain fallback field"),
+            // Database errors
+            AppError::DbNotInitialized => write!(f, "Database not initialized"),
+            AppError::DbColumnFamilyNotFound => write!(f, "Database column family not found"),
+            AppError::DbSerializationError(e) => write!(f, "Database serialization error: {}", e),
+            AppError::DbDeserializationError(e) => write!(f, "Database deserialization error: {}", e),
+            AppError::DbWriteError(e) => write!(f, "Database write error: {}", e),
+            AppError::DbReadError(e) => write!(f, "Database read error: {}", e),
+            AppError::DbKeyNotFound => write!(f, "Database key not found"),
+            // Wallet Core errors
+            AppError::WalletCoreError(e) => write!(f, "Wallet core error: {}", e),
         }
     }
 }
@@ -61,3 +83,36 @@ impl std::error::Error for AppError {
         }
     }
 }
+
+// 为数据库模块提供From trait实现，方便错误转换
+impl From<AppError> for String {
+    fn from(error: AppError) -> String {
+        error.to_string()
+    }
+}
+
+// 为 Tauri 命令提供错误转换
+impl From<AppError> for InvokeError {
+    fn from(error: AppError) -> Self {
+        InvokeError::from(error.to_string())
+    }
+}
+
+/// 数据库错误处理工具函数
+pub struct DbErrorHandler;
+
+impl DbErrorHandler {
+    /// 处理Tauri命令中的数据库错误
+    /// 将AppError转换为String以保持与前端的兼容性
+    pub fn handle_command_error(error: AppError) -> String {
+        error.to_string()
+    }
+    
+    /// 记录数据库错误但不中断程序执行
+    pub fn log_error(error: AppError) {
+        eprintln!("Database error: {}", error);
+    }
+}
+
+/// 数据库操作结果类型别名
+pub type DbResult<T> = std::result::Result<T, AppError>;

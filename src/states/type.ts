@@ -1,62 +1,104 @@
-
+export type HexString = `0x${string}`;
 
 export type App = {
-	id: number;
-	name: string;
-	path: string;
-	chain: number[];
+	readonly id: number;
+	readonly name: string;
+	readonly app_path: string;
+	description: string;
+	supported_chain_ids: number[];
 };
 
+export type Metadata = {
+	readonly chainId: number;
+	readonly address: HexString;
+	logo_url: string;
+	description: string;
+	risk_level: 'low' | 'medium' | 'high';
+	risk_notification: string;
+};
 
+export type Token = {
+	readonly chain_id: number;
+	readonly address: HexString;
+	readonly name: string;
+	readonly symbol: string;
+	readonly decimals: number;
+	logo_url: string;
+	token_type: 'currency' | 'erc-20' | 'erc-777' | 'erc-1155' | '';
+};
 
-export type AccessStatus = 'APPROVED' | 'DENIED';
-export type HexString = `0x${string}`;
-export type AddressType = 'EVM' | 'POLKADOT' | 'POST-QUANTUM'|'';
-export type KeyringType = 'secp256k1' | 'ed25519' | 'sr25519'|'secp256r1'|'';
-export type AccountType = 'local' | 'passkey' | 'hardware'|'airgap'|'';
+export interface Nft {
+	readonly chain_id: number;
+	readonly address: HexString;
+	readonly name: string;
+	readonly symbol: string;
+	token_id?: number;
+	quantity?: number;
+	token_uri?: string;
+	nft_type: 'erc-721' | 'erc-1155'|'';
+}
 
+export type AccountType = 'local' |'hardware'|'airgap'|'watch';
 export interface Account {
 	name: string;
 	readonly address: string;
-	readonly accountIndex: number;
-	readonly accountType: AccountType;
-	readonly addressType?: AddressType;
-	readonly derivePath?: string;
-	readonly keyringType?: KeyringType;
-	isHidden: boolean;
+	readonly account_index: number;
+	readonly account_type: AccountType;
+	readonly derive_path?: string;
+	avatar?: string;
 	memo?: string;
 	ens?: string;
-	nft?: string;
-	tokenid?: number;
+	nft?: Nft;
+	created_at: number; // unix timestamp seconds
+	isHidden: boolean;
 }
 
-export type signerResponseType = {
-	success: boolean;
-	data?: any;
-	error?: string;
-};
-
-export type signerRequestType = {
-	method: string;
-	argus?: any;
-};
 
 export interface AddressEntry {
-	name: string;
-	addressType: AddressType;
-	readonly address: string;
-	ens?: string;
-	memo?: string;
-	avatar?: string;
-}
+	address: string
+	name: string
+	addr_type: string
+	ens?: string
+	nft?: string
+	memo?: string
+	avatar?: string // emoji，用 string 即可
+  }
+  
+  
+  export interface TransactionHistoryEntry {
+	block_hash: string
+	block_number: string
+	from: string
+	to: string
+	value: string
+	input: string
+	nonce: number
+	gas: number
+	gas_price: number
+	gas_used: number
+	r: string
+	s: string
+	v: string
+	status:  'Pending' | 'Confirmed' | 'Failed'
+	txtype: string
+  }
+  
+  export interface MessageHistoryEntry {
+	chain: string
+	msg_type: "191" | "712"
+	signer: string
+	msg_hash: string
+	msg: any
+	signature?: string
+	timestamp: number
+	status?: string
+  }
 
-export interface Vault {
-	readonly name: string;
-	readonly salt: string;
-	readonly ciphertext: string;
-	readonly Version: string;
+export interface CustomRpc {
+    chain: string;
+    rpc_type: string;
+    endpoint: string;
 }
-
 
 
 // cryptoVersion: V1;
@@ -72,10 +114,6 @@ export interface Chain {
 		symbol: string;
 		decimals: number;
 	};
-	http1: string;
-	http2?: string;
-	wss1?: string;
-	wss2?: string;
 	blockExplorers: string;
 	multicall3?: {
 		address: string;
@@ -106,104 +144,41 @@ export interface CurrencyPrice {
 	DOT:number;
 }
 
-export type Token = {
-	chainId: number;
-	type: 'currency' | 'erc-20' | 'erc-777' | 'erc-1155' | "other";
-	decimals: number;
-	symbol: string;
-	name: string;
-	contract?: string;
-	balance?: number;
-};
-
-export type Nft = {
-	chainId: number;
-	type: 'erc-721' | 'erc-1155' | "other";
-	decimals: number;
-	symbol: string;
-	name: string;
-	tokenId: string;
-	contract: string;
-	tokenUri?: string;
-	quntity?: number;
-	metadata?: string;
-};
-
-export type TxParticipant = {
-	address: string;
-	chainId: number;
-};
 
 
-export interface Tx {
-	sender: TxParticipant;
-	recipient: TxParticipant;
-	hash: string;
+
+export interface UiState {
+  locale?: string;
+  dark_mode?: boolean;
+  current_account_index?: number;
+  next_account_index?: number;
+  next_watch_account_index?: number;
+  next_airgap_account_index?: number;
+  next_hdwallet_account_index?: number;
+  auto_lock?: boolean;
+  auto_lock_timer?: number; 
+  active_apps?: App[]|null;
+  hidden_apps?: App[]|null;
+  currency?: string;
+  fiat?: string;
+  is_initialized?: boolean;
+  is_keystore_backuped?: boolean;
 }
 
-export type Activity = {
-	timestamp: number;
-	type: 'send' | 'receive' | 'call contract' | 'cross chain'|'other';
-	value: number;
-	currency: string;
-	sender: TxParticipant;
-	recipient: TxParticipant;
-	txHash?: string;
-	status?: 'Pending' | 'Confirmed' | 'Failed';
-};
-
-
-export type WalletBackupData = {
-	vaults: Vault[];
-	accounts: Account[];
-	addressBook: AddressEntry[];
-	History: History[];
-	settings: Settings;
-};
-
-export interface EIP1193Request {
-	method: string;
-	params?: any[];
-}
-
-export interface MessagePayload {
-	type: string;
-	id?: string;
-	payload?: EIP1193Request | any;
-	result?: any;
-	error?: string;
-	event?: string;
-}
-
-
-export type Settings = {
-	darkMode: boolean;
-	locale: string;
-	currentAccountIndex: number;
-	nextAccountIndex: number;
-	nextPQAccountIndex: number;
-	autoLock: boolean;
-	autoLockTimer: number;
-	activeApps: App[];
-	hiddenApps: App[];
-	hiddenChains: number[];
-	currency: string;
-	fiat: string;
-	isBackup: boolean;
-};
-
-export const defaultSettings: Settings = {
-	darkMode: false,
-	locale: 'en',
-	currentAccountIndex: 0,
-	nextAccountIndex: 1,
-	nextPQAccountIndex: 101,
-	autoLock: true,
-	autoLockTimer: 15, // in minutes
-	activeApps: [],
-	hiddenApps: [],
-	hiddenChains: [],
-	currency: 'ETH',
-	fiat: 'USD',
-	isBackup: false,
+export const DefaultUiConfig: UiState= {
+  locale: 'en',
+  dark_mode: false,
+  current_account_index: 0,
+  next_account_index: 1,
+  next_watch_account_index: 101,
+  next_airgap_account_index: 201,
+  next_hdwallet_account_index: 301,
+  auto_lock: true,
+  auto_lock_timer: 900,
+  active_apps: null,
+  hidden_apps: null,
+  currency: "ETH",
+  fiat: "USD",
+  is_initialized: false,
+  is_keystore_backuped: false,
 };

@@ -1,12 +1,26 @@
-//场景 1：读操作 → Multicall3（无需签名）
+use once_cell::sync::Lazy;
+use std::collections::HashMap;
 
-let (total_supply, balance) = provider
-    .multicall()
-    .add_call(weth.totalSupply())
-    .add_call(weth.balanceOf(alice))
-    .aggregate3()  // ← 读调用，自动批处理
-    .await?;
+pub static PUBLIC_RPC_ENDPOINTS: Lazy<HashMap<&'static str, Vec<&'static str>>> = Lazy::new(|| {
+    HashMap::from([
+        ("eth", vec![
+            "https://rpc.ankr.com/eth",
+            "https://eth-mainnet.public.blastapi.io",
+            "https://ethereum.publicnode.com",
+        ]),
+        ("bsc", vec![
+            "https://bsc-dataseed.binance.org",
+            "https://rpc.ankr.com/bsc",
+            "https://bsc.publicnode.com",
+        ]),
+        ("polygon", vec![
+            "https://polygon-rpc.com",
+            "https://rpc.ankr.com/polygon",
+            "https://polygon-bor.publicnode.com",
+        ]),
+    ])
+});
 
-println!("Supply: {total_supply}, Balance: {balance}");
+
 
 
