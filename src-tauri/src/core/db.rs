@@ -98,7 +98,7 @@ pub struct Account{
     pub avatar: Option<String>, // emoji, 支持多字
     pub memo: Option<String>,
     pub ens: Option<String>,
-    pub nft: Option<String>,  // {chainid ,address,tokenid}
+    pub nft: Option<String>,  // {chain_idid ,address,tokenid}
     pub created_at: u64,
     pub is_hidden: bool,
 }
@@ -131,7 +131,7 @@ pub struct AddressBookEntry {
 
 #[derive(Debug, Serialize, Deserialize, Clone,Encode, Decode, PartialEq)]
 pub struct TransactionHistoryEntry {
-    pub chain: String,
+    pub chain_id: u64,
     pub tx_hash: String,
     pub from: String,
     pub to: String,
@@ -143,7 +143,7 @@ pub struct TransactionHistoryEntry {
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct MessageHistoryEntry {
-    pub chain: String,
+    pub chain_id: u64,
     pub msg_type: String, // "191" | "712"
     pub signer: String,
     pub msg_hash: String,
@@ -160,12 +160,12 @@ pub struct App {
     name: String,
     app_path: String,
     description: String,
-    supported_chain_ids: Vec<u64>,
+    supported_chain_id_ids: Vec<u64>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone,Encode, Decode, PartialEq)]
 pub struct CustomRpc {
-    pub chain: String,
+    pub chain_id: u64,
     pub endpoint: String,
     pub protocol: String,
 }
@@ -176,6 +176,8 @@ pub struct TableManager<'a> {
     cf: Arc<rust_rocksdb::BoundColumnFamily<'a>>,
     prefix: &'static str,
 }
+
+
 
 impl<'a> TableManager<'a> {
     pub fn new(db: &'a DBWithThreadMode<MultiThreaded>, kind: TableKind) -> DbResult<Self> {
@@ -189,20 +191,32 @@ impl<'a> TableManager<'a> {
         })
     }
 
-    fn key(&self, field: &str) -> String {
-        format!("{}:{}", self.prefix, field)
+    pub fn key_from_str(&self, field: &str) -> Vec<u8> {
+        let mut key = Vec::new();
+        key.extend_from_slice(self.prefix.as_bytes());
+        key.push(b':');
+        key.extend_from_slice(&field.as_bytes());
+        key
     }
 
-    pub fn set<T: Serialize + bincode::Encode>(&self, field: &str, value: &T) -> DbResult<()> {
+    pub fn key_from_u64(&self, field: u64) -> Vec<u8> {
+        let mut key = Vec::new();
+        key.extend_from_slice(self.prefix.as_bytes());
+        key.push(b':');
+        key.extend_from_slice(&field.to_be_bytes());
+        key
+    }
+
+    pub fn set<T: Serialize + bincode::Encode>(&self, field: &[u8], value: &T) -> DbResult<()> {
         let data = bincode::encode_to_vec(value, bincode::config::standard())
             .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
         self.db
-            .put_cf(&self.cf, self.key(field), data)
+            .put_cf(&self.cf, field, &data)
             .map_err(|e| AppError::DbWriteError(e.to_string()))
     }
 
-    pub fn get<T: Deserialize<'static> + bincode::Decode<()>>(&self, field: &str) -> DbResult<Option<T>> {
-        match self.db.get_cf(&self.cf, self.key(field)) {
+    pub fn get<T: Deserialize<'static> + bincode::Decode<()>>(&self, field: &[u8]) -> DbResult<Option<T>> {
+        match self.db.get_cf(&self.cf, field) {
             Ok(Some(data)) => {
                 let result = bincode::decode_from_slice::<T, _>(&data, bincode::config::standard())
                     .map_err(|e| AppError::DbDeserializationError(e.to_string()))?;
@@ -213,16 +227,20 @@ impl<'a> TableManager<'a> {
         }
     }
 
-    pub fn delete(&self, field: &str) -> DbResult<()> {
+    pub fn delete(&self, field: &[u8]) -> DbResult<()> {
         self.db
-            .delete_cf(&self.cf, self.key(field))
+            .delete_cf(&self.cf, field)
             .map_err(|e| AppError::DbWriteError(e.to_string()))
     }
 
     pub fn list<T: Deserialize<'static> + bincode::Decode<()>>(&self) -> DbResult<Vec<T>> {
         let mut items = Vec::new();
-        let prefix = format!("{}:", self.prefix);
-        let iter = self.db.prefix_iterator_cf(&self.cf, prefix.as_bytes());
+        // 创建二进制前缀
+        let mut prefix_bytes = Vec::new();
+        prefix_bytes.extend_from_slice(self.prefix.as_bytes());
+        prefix_bytes.push(b':');
+        
+        let iter = self.db.prefix_iterator_cf(&self.cf, &prefix_bytes);
         for item in iter {
             match item {
                 Ok((_key, value)) => {
@@ -253,12 +271,20 @@ impl<'a> TxHistoryManager<'a> {
         Self { db }
     }
 
-    fn make_key(chain: &str, ts: u64, id: &str) -> String {
-        format!("tx:{}:{:020}:{}", chain, ts, id)
+    fn make_key(chain_id: u64, timestamp: u64, hash: &str) -> Vec<u8> {
+        let mut key = Vec::new();
+        key.extend_from_slice("tx".as_bytes());
+        key.push(b':');
+        key.extend_from_slice(&chain_id.to_be_bytes());
+        key.push(b':');
+        key.extend_from_slice(&timestamp.to_be_bytes());
+        key.push(b':');
+        key.extend_from_slice(hash.as_bytes());
+        key
     }
 
     pub fn insert(&self, item: &TransactionHistoryEntry) -> DbResult<()> {
-        let key = Self::make_key(&item.chain, item.timestamp, &item.tx_hash);
+        let key = Self::make_key(item.chain_id, item.timestamp, &item.tx_hash);
         let value = bincode::encode_to_vec(item, bincode::config::standard())
             .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
         self.db.put(key, value).map_err(|e| AppError::DbWriteError(e.to_string()))
@@ -266,25 +292,37 @@ impl<'a> TxHistoryManager<'a> {
 
     pub fn range(
         &self,
-        chain: &str,
+        chain_id: u64,
         from: Option<u64>,
         to: Option<u64>,
     ) -> DbResult<Vec<TransactionHistoryEntry>> {
         let start = from.unwrap_or(0);
         let end = to.unwrap_or(u64::MAX);
-        let prefix = format!("tx:{}:", chain);
-        let start_key = format!("{}{:020}", prefix, start);
-        let end_key = format!("{}{:020}", prefix, end);
-
+        
+        // 创建前缀 key 用于迭代
+        let mut prefix = Vec::new();
+        prefix.extend_from_slice("tx".as_bytes());
+        prefix.push(b':');
+        prefix.extend_from_slice(&chain_id.to_be_bytes());
+        prefix.push(b':');
+        
+        // 创建起始和结束 key
+        let mut start_key = prefix.clone();
+        start_key.extend_from_slice(&start.to_be_bytes());
+        
+        let mut end_key = prefix.clone();
+        end_key.extend_from_slice(&end.to_be_bytes());
+        
         let iter = self
             .db
-            .iterator(IteratorMode::From(start_key.as_bytes(), Direction::Forward));
+            .iterator(IteratorMode::From(&start_key, Direction::Forward));
         let mut result = Vec::new();
 
         for item in iter {
             match item {
                 Ok((key, value)) => {
-                    if key.as_ref() > end_key.as_bytes() || !key.starts_with(prefix.as_bytes()) {
+                    // 检查 key 是否在范围内且具有正确的前缀
+                    if key.as_ref() > end_key.as_slice() || !key.starts_with(&prefix) {
                         break;
                     }
                     match bincode::decode_from_slice::<TransactionHistoryEntry, _>(&value, bincode::config::standard()) {
@@ -305,9 +343,15 @@ impl<'a> TxHistoryManager<'a> {
         Ok(result)
     }
 
-    pub fn find(&self, chain: &str, id: &str) -> DbResult<Option<TransactionHistoryEntry>> {
-        let prefix = format!("tx:{}:", chain);
-        let iter = self.db.prefix_iterator(prefix.as_bytes());
+    pub fn find(&self, chain_id: u64, id: &str) -> DbResult<Option<TransactionHistoryEntry>> {
+        // 创建前缀 key 用于迭代
+        let mut prefix = Vec::new();
+        prefix.extend_from_slice("tx".as_bytes());
+        prefix.push(b':');
+        prefix.extend_from_slice(&chain_id.to_be_bytes());
+        prefix.push(b':');
+        
+        let iter = self.db.prefix_iterator(&prefix);
 
         for item in iter {
             match item {
@@ -333,9 +377,15 @@ impl<'a> TxHistoryManager<'a> {
         Ok(None)
     }
 
-    pub fn delete(&self, chain: &str, id: &str) -> DbResult<()> {
-        let prefix = format!("tx:{}:", chain);
-        let iter = self.db.prefix_iterator(prefix.as_bytes());
+    pub fn delete(&self, chain_id: u64, id: &str) -> DbResult<()> {
+        // 创建前缀 key 用于迭代
+        let mut prefix = Vec::new();
+        prefix.extend_from_slice("tx".as_bytes());
+        prefix.push(b':');
+        prefix.extend_from_slice(&chain_id.to_be_bytes());
+        prefix.push(b':');
+        
+        let iter = self.db.prefix_iterator(&prefix);
         
         for item in iter {
             match item {
@@ -366,18 +416,24 @@ impl<'a> TxHistoryManager<'a> {
     pub fn batch_insert(&self, items: &[TransactionHistoryEntry]) -> DbResult<()> {
         let mut batch = WriteBatch::default();
         for item in items {
-            let key = Self::make_key(&item.chain, item.timestamp, &item.tx_hash);
+            let key = Self::make_key(item.chain_id, item.timestamp, &item.tx_hash);
             let data = bincode::encode_to_vec(item, bincode::config::standard())
                 .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-            batch.put(key.as_bytes(), &data);
+            batch.put(key, &data);
         }
         self.db.write(&batch).map_err(|e| AppError::DbWriteError(e.to_string()))
     }
 
     /// 批量删除：根据 tx_hash 匹配
-    pub fn batch_delete(&self, chain: &str, ids: &[String]) -> DbResult<()> {
-        let prefix = format!("tx:{}:", chain);
-        let iter = self.db.prefix_iterator(prefix.as_bytes());
+    pub fn batch_delete(&self, chain_id: u64, ids: &[String]) -> DbResult<()> {
+        // 创建前缀 key 用于迭代
+        let mut prefix = Vec::new();
+        prefix.extend_from_slice("tx".as_bytes());
+        prefix.push(b':');
+        prefix.extend_from_slice(&chain_id.to_be_bytes());
+        prefix.push(b':');
+        
+        let iter = self.db.prefix_iterator(&prefix);
         let mut batch = WriteBatch::default();
 
         for item in iter {
@@ -413,6 +469,9 @@ pub fn vault_get(key: String) -> Result<Option<Vault>, AppError> {
     let db = guard.as_ref().ok_or(AppError::DbNotInitialized)?;
     let mgr = TableManager::new(db, TableKind::Vault)?;
     
+    // 创建二进制 key
+    let key = mgr.key_from_str(&key);
+    
     // 获取存储的 JSON 字符串
     if let Some(vault_str) = mgr.get::<String>(&key)? {
         // 反序列化为 Vault 对象
@@ -429,6 +488,9 @@ pub fn vault_add(key: String, vault: Vault) -> Result<(), AppError> {
     let guard = DB_INSTANCE.read().unwrap();
     let db = guard.as_ref().ok_or(AppError::DbNotInitialized)?;
     let mgr = TableManager::new(db, TableKind::Vault)?;
+    
+    // 创建二进制 key
+     let key = mgr.key_from_str(&key);
     
     // 序列化为 JSON 字符串再存储
     let vault_str = serde_json::to_string(&vault)
@@ -456,7 +518,9 @@ pub fn addressbook_add(entry: AddressBookEntry) -> Result<(), AppError> {
     let db = DB_INSTANCE.read().unwrap();
     let db = db.as_ref().ok_or(AppError::DbNotInitialized)?;
     let mgr = TableManager::new(db, TableKind::AddressBook)?;
-    mgr.set(&entry.address, &entry)
+    // 创建二进制 key
+    let key = mgr.key_from_str(&entry.address);
+    mgr.set(&key, &entry)
 }
 
 #[tauri::command]
@@ -464,19 +528,21 @@ pub fn addressbook_delete(address: String) -> Result<(), AppError> {
     let db = DB_INSTANCE.read().unwrap();
     let db = db.as_ref().ok_or(AppError::DbNotInitialized)?;
     let mgr = TableManager::new(db, TableKind::AddressBook)?;
-    mgr.delete(&address)
+    // 创建二进制 key
+    let key = mgr.key_from_str(&address);
+    mgr.delete(&key)
 }
 
 #[tauri::command]
 pub fn tx_list(
-    chain: String,
+    chain_id: u64,
     from: Option<u64>,
     to: Option<u64>,
 ) -> Result<Vec<TransactionHistoryEntry>, AppError> {
     let guard = DB_INSTANCE.read().unwrap();
     let db = guard.as_ref().ok_or(AppError::DbNotInitialized)?;
     let mgr = TxHistoryManager::new(db);
-    mgr.range(&chain, from, to)
+    mgr.range(chain_id, from, to)
 }
 
 // ========== CUSTOM RPC ==========
@@ -493,17 +559,24 @@ pub fn custom_rpc_add(rpc: CustomRpc) -> Result<(), AppError> {
     let db = DB_INSTANCE.read().unwrap();
     let db = db.as_ref().ok_or(AppError::DbNotInitialized)?;
     let mgr = TableManager::new(db, TableKind::CustomRpc)?;
-    let key = format!("{}", rpc.chain);
+    let mut key = mgr.key_from_u64(rpc.chain_id);
+    key.push(b':');
+    key.extend_from_slice(&rpc.protocol.as_bytes());
+
     mgr.set(&key, &rpc)
 }
 
 #[tauri::command]
-pub fn custom_rpc_delete(chain_id: u64) -> Result<(), AppError> {
+pub fn custom_rpc_delete(chain_id: u64, protocol: String) -> Result<(), AppError> {
     let guard = DB_INSTANCE.read().unwrap();
     let db = guard.as_ref().ok_or(AppError::DbNotInitialized)?;
     let mgr = TableManager::new(db, TableKind::CustomRpc)?;
-    mgr.delete(&chain_id.to_string())
+    let mut key = mgr.key_from_u64(chain_id);
+    key.push(b':');
+    key.extend_from_slice(&protocol.as_bytes());
+    mgr.delete(&key)
 }
+
 
 
 // ========== MESSAGE HISTORY ==========
@@ -516,19 +589,19 @@ pub fn tx_add(entry: TransactionHistoryEntry) -> Result<(), AppError> {
 }
 
 #[tauri::command]
-pub fn tx_find(chain: String, id: String) -> Result<Option<TransactionHistoryEntry>, AppError> {
+pub fn tx_find(chain_id: u64, hash: String) -> Result<Option<TransactionHistoryEntry>, AppError> {
     let guard = DB_INSTANCE.read().unwrap();
     let db = guard.as_ref().ok_or(AppError::DbNotInitialized)?;
     let mgr = TxHistoryManager::new(db);
-    mgr.find(&chain, &id)
+    mgr.find(chain_id, &hash)
 }
 
 #[tauri::command]
-pub fn tx_delete(chain: String, id: String) -> Result<(), AppError> {
+pub fn tx_delete(chain_id: u64, hash: String) -> Result<(), AppError> {
     let guard = DB_INSTANCE.read().unwrap();
     let db = guard.as_ref().ok_or(AppError::DbNotInitialized)?;
     let mgr = TxHistoryManager::new(db);
-    mgr.delete(&chain, &id)
+    mgr.delete(chain_id, &hash)
 }
 
 #[tauri::command]
@@ -540,35 +613,41 @@ pub fn tx_batch_insert(items: Vec<TransactionHistoryEntry>) -> Result<(), AppErr
 }
 
 #[tauri::command]
-pub fn tx_batch_delete(chain: String, ids: Vec<String>) -> Result<(), AppError> {
+pub fn tx_batch_delete(chain_id: u64, hashs: Vec<String>) -> Result<(), AppError> {
     let guard = DB_INSTANCE.read().unwrap();
     let db = guard.as_ref().ok_or(AppError::DbNotInitialized)?;
     let mgr = TxHistoryManager::new(db);
-    mgr.batch_delete(&chain, &ids)
+    mgr.batch_delete(chain_id, &hashs)
 }
 
 // ========== MESSAGE HISTORY ==========
 #[tauri::command]
-pub fn message_add(chain: String, id: String, entry: MessageHistoryEntry) -> Result<(), AppError> {
+pub fn message_add(chain_id: u64, hash: String, entry: MessageHistoryEntry) -> Result<(), AppError> {
     let db = DB_INSTANCE.read().unwrap();
     let db = db.as_ref().ok_or(AppError::DbNotInitialized)?;
     let mgr = TableManager::new(db, TableKind::MsgHistory)?;
-    let key = format!("{}:{}", chain, id);
+     let mut key = mgr.key_from_u64(chain_id);
+    key.push(b':');
+    key.extend_from_slice(&hash.as_bytes());
     let entry_str = serde_json::to_string(&entry).map_err(AppError::JsonParseError)?;
     mgr.set(&key, &entry_str)
 }
 
 #[tauri::command]
-pub fn message_delete(chain: String, id: String) -> Result<(), AppError> {
+pub fn message_delete(chain_id: u64, hash: String) -> Result<(), AppError> {
     let db = DB_INSTANCE.read().unwrap();
     let db = db.as_ref().ok_or(AppError::DbNotInitialized)?;
     let mgr = TableManager::new(db, TableKind::MsgHistory)?;
-    let key = format!("{}:{}", chain, id);
+    let mut key = Vec::new();
+    key.extend_from_slice(&chain_id.to_be_bytes());
+    key.push(b':');
+    key.extend_from_slice(&hash.as_bytes());
+    // 创建二进制 key
     mgr.delete(&key)
 }
 
 #[tauri::command]
-pub fn message_list(chain: Option<String>) -> Result<Vec<MessageHistoryEntry>, AppError> {
+pub fn message_list(chain_id: Option<u64>) -> Result<Vec<MessageHistoryEntry>, AppError> {
     let db = DB_INSTANCE.read().unwrap();
     let db = db.as_ref().ok_or(AppError::DbNotInitialized)?;
     let mgr = TableManager::new(db, TableKind::MsgHistory)?;
@@ -577,8 +656,8 @@ pub fn message_list(chain: Option<String>) -> Result<Vec<MessageHistoryEntry>, A
     for item_str in list {
         match serde_json::from_str::<MessageHistoryEntry>(&item_str) {
             Ok(item) => {
-                if let Some(ref c) = chain {
-                    if item.chain == *c {
+                if let Some(ref c) = chain_id {
+                    if item.chain_id == *c {
                         result.push(item);
                     }
                 } else {

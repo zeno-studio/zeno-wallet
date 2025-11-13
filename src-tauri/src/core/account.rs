@@ -52,7 +52,8 @@ pub fn account_add(index: u64, account: Account) -> Result<(), AppError> {
     let db = DB_INSTANCE.read().unwrap();
     let db = db.as_ref().ok_or(AppError::DbNotInitialized)?;
     let mgr = TableManager::new(db, TableKind::Account)?;
-    mgr.set(&index.to_string(), &account)?;
+    let mut key = mgr.key_from_u64(index);
+    mgr.set(&key, &account)?;
     Ok(())
 }
 
@@ -61,7 +62,8 @@ pub fn account_get(index: u64) -> Result<Option<Account>, AppError> {
     let db = DB_INSTANCE.read().unwrap();
     let db = db.as_ref().ok_or(AppError::DbNotInitialized)?;
     let mgr = TableManager::new(db, TableKind::Account)?;
-    mgr.get::<Account>(&index.to_string())
+    let mut key = mgr.key_from_u64(index);
+    mgr.get::<Account>(&key)
 }
 
 #[tauri::command]
@@ -69,7 +71,8 @@ pub fn account_delete(index: u64) -> Result<(), AppError> {
     let db = DB_INSTANCE.read().unwrap();
     let db = db.as_ref().ok_or(AppError::DbNotInitialized)?;
     let mgr = TableManager::new(db, TableKind::Account)?;
-    mgr.delete(&index.to_string())
+    let mut key = mgr.key_from_u64(index);
+    mgr.delete(&key)
 }
 
 #[tauri::command]

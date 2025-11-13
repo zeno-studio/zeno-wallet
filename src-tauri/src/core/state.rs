@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use z_wallet_core::{WalletCore, constants};
 
-use crate::core::db::{DB_INSTANCE, TableKind, TableManager, UiConfig, vault_get};
+use crate::core::db::{App, DB_INSTANCE, TableKind, TableManager, UiConfig, vault_get};
 use crate::error::{AppError, DbResult};
 use rust_rocksdb::WriteBatch;
 pub struct AppState {
@@ -81,6 +81,7 @@ pub fn set_ui_config_item(key: String, value: serde_json::Value) -> Result<(), A
         "locale" => {
             if let Some(locale) = value.as_str() {
                 ui_config.locale = Some(locale.to_string());
+
                 config_set(key.clone(), value.clone())?;
             }
         }
@@ -132,11 +133,20 @@ pub fn set_ui_config_item(key: String, value: serde_json::Value) -> Result<(), A
 
 // ========== CONFIG ==========
 
+pub fn make_config_key(field: &str) -> Vec<u8> {
+    let mut key = Vec::new();
+        key.extend_from_slice("config".as_bytes());
+        key.push(b':');
+        key.extend_from_slice(field.as_bytes());
+        key
+}
+
+
 pub fn config_get(key: String) -> DbResult<Option<String>> {
     let db = DB_INSTANCE.read().unwrap();
     let db = db.as_ref().ok_or(AppError::DbNotInitialized)?;
     let mgr = TableManager::new(db, TableKind::Config)?;
-    mgr.get::<String>(&key)
+    mgr.get::<String>(&make_config_key(&key))
 }
 
 pub fn config_set(key: String, value: serde_json::Value) -> DbResult<()> {
@@ -145,8 +155,9 @@ pub fn config_set(key: String, value: serde_json::Value) -> DbResult<()> {
     let mgr = TableManager::new(db, TableKind::Config)?;
     // 将 serde_json::Value 序列化为 JSON 字符串进行存储
     let value_str = serde_json::to_string(&value).map_err(|e| AppError::JsonParseError(e))?;
-    mgr.set(&key, &value_str)
+    mgr.set(&make_config_key(&key), &value_str)
 }
+
 
 // reserve function for backup
 pub fn config_batch_set(cfg: UiConfig) -> DbResult<()> {
@@ -157,77 +168,77 @@ pub fn config_batch_set(cfg: UiConfig) -> DbResult<()> {
     if let Some(v) = cfg.locale {
         let data = bincode::encode_to_vec(&v, bincode::config::standard())
             .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-        batch.put("config:locale", &data);
+        batch.put(make_config_key("locale"), &data);
     }
     if let Some(v) = cfg.dark_mode {
         let data = bincode::encode_to_vec(&v, bincode::config::standard())
             .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-        batch.put("config:dark_mode", &data);
+        batch.put(make_config_key("dark_mode"), &data);
     }
     if let Some(v) = cfg.current_account_index {
         let data = bincode::encode_to_vec(&v, bincode::config::standard())
             .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-        batch.put("config:current_account_index", &data);
+        batch.put(make_config_key("current_account_index"), &data);
     }
     if let Some(v) = cfg.next_account_index {
         let data = bincode::encode_to_vec(&v, bincode::config::standard())
             .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-        batch.put("config:next_account_index", &data);
+        batch.put(make_config_key("next_account_index"), &data);
     }
     if let Some(v) = cfg.next_watch_account_index {
         let data = bincode::encode_to_vec(&v, bincode::config::standard())
             .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-        batch.put("config:next_watch_account_index", &data);
+        batch.put(make_config_key("next_watch_account_index"), &data);
     }
     if let Some(v) = cfg.next_airgap_account_index {
         let data = bincode::encode_to_vec(&v, bincode::config::standard())
             .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-        batch.put("config:next_airgap_account_index", &data);
+        batch.put(make_config_key("next_airgap_account_index"), &data);
     }
     if let Some(v) = cfg.next_hdwallet_account_index {
         let data = bincode::encode_to_vec(&v, bincode::config::standard())
             .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-        batch.put("config:next_hdwallet_account_index", &data);
+        batch.put(make_config_key("next_hdwallet_account_index"), &data);
     }
     if let Some(v) = cfg.auto_lock {
         let data = bincode::encode_to_vec(&v, bincode::config::standard())
             .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-        batch.put("config:auto_lock", &data);
+        batch.put(make_config_key("auto_lock"), &data);
     }
     if let Some(v) = cfg.auto_lock_timer {
         let data = bincode::encode_to_vec(&v, bincode::config::standard())
             .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-        batch.put("config:auto_lock_timer", &data);
+        batch.put(make_config_key("auto_lock_timer"), &data);
     }
     if let Some(v) = cfg.active_apps {
         let data = bincode::encode_to_vec(&v, bincode::config::standard())
             .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-        batch.put("config:active_apps", &data);
+        batch.put(make_config_key("active_apps"), &data);
     }
     if let Some(v) = cfg.hidden_apps {
         let data = bincode::encode_to_vec(&v, bincode::config::standard())
             .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-        batch.put("config:hidden_apps", &data);
+        batch.put(make_config_key("hidden_apps"), &data);
     }
     if let Some(v) = cfg.currency {
         let data = bincode::encode_to_vec(&v, bincode::config::standard())
             .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-        batch.put("config:currency", &data);
+        batch.put(make_config_key("currency"), &data);
     }
     if let Some(v) = cfg.fiat {
         let data = bincode::encode_to_vec(&v, bincode::config::standard())
             .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-        batch.put("config:fiat", &data);
+        batch.put(make_config_key("fiat"), &data);
     }
     if let Some(v) = cfg.is_initialized {
         let data = bincode::encode_to_vec(&v, bincode::config::standard())
             .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-        batch.put("config:is_initialized", &data);
+        batch.put(make_config_key("is_initialized"), &data);
     }
     if let Some(v) = cfg.is_keystore_backuped {
         let data = bincode::encode_to_vec(&v, bincode::config::standard())
             .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-        batch.put("config:is_keystore_backuped", &data);
+        batch.put(make_config_key("is_keystore_backuped"), &data);
     }
 
     db.write(&batch)
@@ -241,21 +252,21 @@ pub fn config_batch_get() -> DbResult<UiConfig> {
     let mgr = TableManager::new(db, TableKind::Config)?;
     let mut cfg = UiConfig::default();
 
-    cfg.locale = mgr.get::<String>("locale")?;
-    cfg.dark_mode = mgr.get::<bool>("dark_mode")?;
-    cfg.current_account_index = mgr.get::<u64>("current_account_index")?;
-    cfg.next_account_index = mgr.get::<u64>("next_account_index")?;
-    cfg.next_watch_account_index = mgr.get::<u64>("next_watch_account_index")?;
-    cfg.next_airgap_account_index = mgr.get::<u64>("next_airgap_account_index")?;
-    cfg.next_hdwallet_account_index = mgr.get::<u64>("next_hdwallet_account_index")?;
-    cfg.auto_lock = mgr.get::<bool>("auto_lock")?;
-    cfg.auto_lock_timer = mgr.get::<u64>("auto_lock_timer")?;
-    cfg.active_apps = mgr.get::<Vec<App>>("active_apps")?;
-    cfg.hidden_apps = mgr.get::<Vec<App>>("hidden_apps")?;
-    cfg.currency = mgr.get::<String>("currency")?;
-    cfg.fiat = mgr.get::<String>("fiat")?;
-    cfg.is_initialized = mgr.get::<bool>("is_initialized")?;
-    cfg.is_keystore_backuped = mgr.get::<bool>("is_keystore_backuped")?;
+    cfg.locale = mgr.get::<String>(&make_config_key("locale"))?;
+    cfg.dark_mode = mgr.get::<bool>(&make_config_key("dark_mode"))?;
+    cfg.current_account_index = mgr.get::<u64>(&make_config_key("current_account_index"))?;
+    cfg.next_account_index = mgr.get::<u64>(&make_config_key("next_account_index"))?;
+    cfg.next_watch_account_index = mgr.get::<u64>(&make_config_key("next_watch_account_index"))?;
+    cfg.next_airgap_account_index = mgr.get::<u64>(&make_config_key("next_airgap_account_index"))?;
+    cfg.next_hdwallet_account_index = mgr.get::<u64>(&make_config_key("next_hdwallet_account_index"))?;
+    cfg.auto_lock = mgr.get::<bool>(&make_config_key("auto_lock"))?;
+    cfg.auto_lock_timer = mgr.get::<u64>(&make_config_key("auto_lock_timer"))?;
+    cfg.active_apps = mgr.get::<Vec<App>>(&make_config_key("active_apps"))?;
+    cfg.hidden_apps = mgr.get::<Vec<App>>(&make_config_key("hidden_apps"))?;
+    cfg.currency = mgr.get::<String>(&make_config_key("currency"))?;
+    cfg.fiat = mgr.get::<String>(&make_config_key("fiat"))?;
+    cfg.is_initialized = mgr.get::<bool>(&make_config_key("is_initialized"))?;
+    cfg.is_keystore_backuped = mgr.get::<bool>(&make_config_key("is_keystore_backuped"))?;
 
     Ok(cfg)
 }
