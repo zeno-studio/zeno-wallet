@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 use once_cell::sync::Lazy;
 use rust_rocksdb::{
     ColumnFamilyDescriptor, DBWithThreadMode, Direction, IteratorMode,
@@ -6,7 +7,6 @@ use rust_rocksdb::{
 use serde::{Deserialize, Serialize};
 use std::sync::RwLock;
 use std::sync::Arc;
-use tauri::State;
 use z_wallet_core::{Vault,};
 use bincode::{Decode, Encode};
 
@@ -93,7 +93,7 @@ pub struct Account{
     pub name: String,
     pub address: String,
     pub account_type: String, // local | watch
-    pub account_index: u32,
+    pub account_index: u64,
     pub derive_path: String,
     pub avatar: Option<String>, // emoji, 支持多字
     pub memo: Option<String>,
@@ -101,6 +101,24 @@ pub struct Account{
     pub nft: Option<String>,  // {chainid ,address,tokenid}
     pub created_at: u64,
     pub is_hidden: bool,
+}
+
+impl Default for Account {
+    fn default() -> Self {
+        Self {
+            name: "".to_string(),
+            address: "".to_string(),
+            account_type: "local".to_string(),
+            account_index: 0,
+            derive_path: "".to_string(),
+            avatar: None,
+            memo: None,
+            ens: None,
+            nft: None,
+            created_at:0,
+            is_hidden: false,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone,Encode, Decode, PartialEq)]
@@ -148,8 +166,8 @@ pub struct App {
 #[derive(Debug, Serialize, Deserialize, Clone,Encode, Decode, PartialEq)]
 pub struct CustomRpc {
     pub chain: String,
-    pub rpc_type: String,
     pub endpoint: String,
+    pub protocol: String,
 }
 
 // ========== 通用 Manager ==========
@@ -407,7 +425,7 @@ pub fn vault_get(key: String) -> Result<Option<Vault>, AppError> {
 }
 
 #[tauri::command]
-pub fn vault_set(key: String, vault: Vault) -> Result<(), AppError> {
+pub fn vault_add(key: String, vault: Vault) -> Result<(), AppError> {
     let guard = DB_INSTANCE.read().unwrap();
     let db = guard.as_ref().ok_or(AppError::DbNotInitialized)?;
     let mgr = TableManager::new(db, TableKind::Vault)?;
@@ -415,38 +433,11 @@ pub fn vault_set(key: String, vault: Vault) -> Result<(), AppError> {
     // 序列化为 JSON 字符串再存储
     let vault_str = serde_json::to_string(&vault)
         .map_err(|e| AppError::JsonParseError(e))?;
-    mgr.set(&key, &vault_str)
+    mgr.set(&key, &vault_str)?;
+    Ok(())
 }
 
-// ========== ACCOUNT ==========
-#[tauri::command]
-pub fn account_list(category: Option<String>) -> Result<Vec<Account>, AppError> {
-    let db = DB_INSTANCE.read().unwrap();
-    let db = db.as_ref().ok_or(AppError::DbNotInitialized)?;
-    let mgr = TableManager::new(db, TableKind::Account)?;
-    let list = mgr.list::<Account>()?;
-    Ok(match category {
-        Some(cat) => list.into_iter().filter(|a| a.account_type == cat).collect(),
-        None => list,
-    })
-}
 
-#[tauri::command]
-pub fn account_add(account: Account) -> Result<(), AppError> {
-    let db = DB_INSTANCE.read().unwrap();
-    let db = db.as_ref().ok_or(AppError::DbNotInitialized)?;
-    let mgr = TableManager::new(db, TableKind::Account)?;
-    let key = account.address.clone();
-    mgr.set(&key, &account)
-}
-
-#[tauri::command]
-pub fn account_delete(address: String) -> Result<(), AppError> {
-    let db = DB_INSTANCE.read().unwrap();
-    let db = db.as_ref().ok_or(AppError::DbNotInitialized)?;
-    let mgr = TableManager::new(db, TableKind::Account)?;
-    mgr.delete(&address)
-}
 // ========== ADDRESSBOOK ==========
 #[tauri::command]
 pub fn addressbook_list(category: Option<String>) -> Result<Vec<AddressBookEntry>, AppError> {
@@ -465,17 +456,15 @@ pub fn addressbook_add(entry: AddressBookEntry) -> Result<(), AppError> {
     let db = DB_INSTANCE.read().unwrap();
     let db = db.as_ref().ok_or(AppError::DbNotInitialized)?;
     let mgr = TableManager::new(db, TableKind::AddressBook)?;
-    let key = format!("{}:{}", entry.category, entry.address);
-    mgr.set(&key, &entry)
+    mgr.set(&entry.address, &entry)
 }
 
 #[tauri::command]
-pub fn addressbook_delete(category: String, address: String) -> Result<(), AppError> {
+pub fn addressbook_delete(address: String) -> Result<(), AppError> {
     let db = DB_INSTANCE.read().unwrap();
     let db = db.as_ref().ok_or(AppError::DbNotInitialized)?;
     let mgr = TableManager::new(db, TableKind::AddressBook)?;
-    let key = format!("{}:{}", category, address);
-    mgr.delete(&key)
+    mgr.delete(&address)
 }
 
 #[tauri::command]
@@ -606,131 +595,8 @@ pub fn message_list(chain: Option<String>) -> Result<Vec<MessageHistoryEntry>, A
     Ok(result)
 }
 
-// ========== CONFIG ==========
 
-pub fn config_get(key: String) -> DbResult<Option<String>> {
-    let db = DB_INSTANCE.read().unwrap();
-    let db = db.as_ref().ok_or(AppError::DbNotInitialized)?;
-    let mgr = TableManager::new(db, TableKind::Config)?;
-    mgr.get::<String>(&key)
-}
 
-pub fn config_set(key: String, value: serde_json::Value) -> DbResult<()> {
-    let db = DB_INSTANCE.read().unwrap();
-    let db = db.as_ref().ok_or(AppError::DbNotInitialized)?;
-    let mgr = TableManager::new(db, TableKind::Config)?;
-    let value_str = serde_json::to_string(&value).map_err(|e| AppError::JsonParseError(e))?;
-    mgr.set(&key, &value_str)
-}
-
-pub fn config_batch_set(cfg: UiConfig) -> DbResult<()> {
-    let guard = DB_INSTANCE.read().unwrap();
-    let db = guard.as_ref().ok_or(AppError::DbNotInitialized)?;
-    let mut batch = WriteBatch::default();
-
-    if let Some(v) = cfg.locale {
-        let data = bincode::encode_to_vec(&v, bincode::config::standard())
-            .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-        batch.put("config:locale", &data);
-    }
-    if let Some(v) = cfg.dark_mode {
-        let data = bincode::encode_to_vec(&v, bincode::config::standard())
-            .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-        batch.put("config:dark_mode", &data);
-    }
-    if let Some(v) = cfg.current_account_index {
-        let data = bincode::encode_to_vec(&v, bincode::config::standard())
-            .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-        batch.put("config:current_account_index", &data);
-    }
-    if let Some(v) = cfg.next_account_index {
-        let data = bincode::encode_to_vec(&v, bincode::config::standard())
-            .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-        batch.put("config:next_account_index", &data);
-    }
-    if let Some(v) = cfg.next_watch_account_index {
-        let data = bincode::encode_to_vec(&v, bincode::config::standard())
-            .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-        batch.put("config:next_watch_account_index", &data);
-    }
-    if let Some(v) = cfg.next_airgap_account_index {
-        let data = bincode::encode_to_vec(&v, bincode::config::standard())
-            .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-        batch.put("config:next_airgap_account_index", &data);
-    }
-    if let Some(v) = cfg.next_hdwallet_account_index {
-        let data = bincode::encode_to_vec(&v, bincode::config::standard())
-            .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-        batch.put("config:next_hdwallet_account_index", &data);
-    }
-    if let Some(v) = cfg.auto_lock {
-        let data = bincode::encode_to_vec(&v, bincode::config::standard())
-            .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-        batch.put("config:auto_lock", &data);
-    }
-    if let Some(v) = cfg.auto_lock_timer {
-        let data = bincode::encode_to_vec(&v, bincode::config::standard())
-            .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-        batch.put("config:auto_lock_timer", &data);
-    }
-    if let Some(v) = cfg.active_apps {
-        let data = bincode::encode_to_vec(&v, bincode::config::standard())
-            .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-        batch.put("config:active_apps", &data);
-    }
-    if let Some(v) = cfg.hidden_apps {
-        let data = bincode::encode_to_vec(&v, bincode::config::standard())
-            .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-        batch.put("config:hidden_apps", &data);
-    }
-    if let Some(v) = cfg.currency {
-        let data = bincode::encode_to_vec(&v, bincode::config::standard())
-            .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-        batch.put("config:currency", &data);
-    }
-    if let Some(v) = cfg.fiat {
-        let data = bincode::encode_to_vec(&v, bincode::config::standard())
-            .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-        batch.put("config:fiat", &data);
-    }
-    if let Some(v) = cfg.is_initialized {
-        let data = bincode::encode_to_vec(&v, bincode::config::standard())
-            .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-        batch.put("config:is_initialized", &data);
-    }
-    if let Some(v) = cfg.is_keystore_backuped {
-        let data = bincode::encode_to_vec(&v, bincode::config::standard())
-            .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-        batch.put("config:is_keystore_backuped", &data);
-    }
-
-    db.write(&batch).map_err(|e| AppError::DbWriteError(e.to_string()))
-}
-
-pub fn config_batch_get() -> DbResult<UiConfig> {
-    let db = DB_INSTANCE.read().unwrap();
-    let db = db.as_ref().ok_or(AppError::DbNotInitialized)?;
-    let mgr = TableManager::new(db, TableKind::Config)?;
-    let mut cfg = UiConfig::default();
-    
-    cfg.locale = mgr.get::<String>("locale")?;
-    cfg.dark_mode = mgr.get::<bool>("dark_mode")?;
-    cfg.current_account_index = mgr.get::<u64>("current_account_index")?;
-    cfg.next_account_index = mgr.get::<u64>("next_account_index")?;
-    cfg.next_watch_account_index = mgr.get::<u64>("next_watch_account_index")?;
-    cfg.next_airgap_account_index = mgr.get::<u64>("next_airgap_account_index")?;
-    cfg.next_hdwallet_account_index = mgr.get::<u64>("next_hdwallet_account_index")?;   
-    cfg.auto_lock = mgr.get::<bool>("auto_lock")?;
-    cfg.auto_lock_timer = mgr.get::<u64>("auto_lock_timer")?;
-    cfg.active_apps = mgr.get::<Vec<App>>("active_apps")?;
-    cfg.hidden_apps = mgr.get::<Vec<App>>("hidden_apps")?;
-    cfg.currency = mgr.get::<String>("currency")?;
-    cfg.fiat = mgr.get::<String>("fiat")?;
-    cfg.is_initialized = mgr.get::<bool>("is_initialized")?;
-    cfg.is_keystore_backuped = mgr.get::<bool>("is_keystore_backuped")?;
-    
-    Ok(cfg)
-}
 
 // ========== DB 初始化 ==========
 pub fn db_init(app_handle: &tauri::AppHandle) -> DbResult<()> {

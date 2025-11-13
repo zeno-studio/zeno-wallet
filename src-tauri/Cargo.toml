@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "A Ethereum wallet built with Tauri"
 authors = ["zenostudio <zenostudio@proton.me>"]
 edition = "2024"
-license = "MIT"
+license = "GPL-3.0-only"
 
 [profile.release]
 codegen-units = 1 # 允许 LLVM 执行更好的优化。

@@ -1,15 +1,15 @@
 use z_wallet_core::{WalletCore, constants};
 use tauri::State;
 use once_cell::sync::Lazy;
-use std::sync::RwLock;
+use std::sync::Mutex;
 use std::sync::Arc;
 
-use crate::comm::db::{UiConfig, db_init, config_batch_set, config_get,config_set,config_batch_get,vault_get, vault_set};
+use crate::core::db::{UiConfig, db_init, config_batch_set, config_get,config_set,config_batch_get,vault_get, vault_set};
 use crate::error::AppError;
 
 pub struct AppState {
-    pub wallet: RwLock<WalletCore>,
-    pub ui_config: RwLock<UiConfig>,
+    pub wallet: Mutex<WalletCore>,
+    pub ui_config: Mutex<UiConfig>,
 }
 
 pub enum VaultType {
@@ -49,8 +49,8 @@ impl AppState {
         }
 
         Ok(AppState {
-            wallet: RwLock::new(wallet),
-            ui_config: RwLock::new(ui_config),
+            wallet: Mutex::new(wallet),
+            ui_config: Mutex::new(ui_config),
         })
     }
     
@@ -68,11 +68,11 @@ pub static APP_STATE: Lazy<Arc<AppState>> = Lazy::new(|| {
 
 #[tauri::command]
 pub fn get_ui_config() -> Result<UiConfig, AppError> {
-    Ok(APP_STATE.ui_config.read().unwrap().clone())
+    Ok(APP_STATE.ui_config.lock().unwrap().clone())
 }
 
 pub fn get_wallet() -> Result<WalletCore, AppError> {
-    Ok(APP_STATE.wallet.read().unwrap().clone())
+    Ok(APP_STATE.wallet.lock().unwrap().clone())
 }
 
 #[tauri::command]
@@ -81,7 +81,7 @@ pub fn set_ui_config_item(key: String, value: serde_json::Value) -> Result<(), A
     config_set(key.clone(), value.clone())?;
     
     // 更新内存中的配置
-    let mut ui_config = APP_STATE.ui_config.write().unwrap();
+    let mut ui_config = APP_STATE.ui_config.lock().unwrap();
     
     // 根据 key 更新对应的字段
     match key.as_str() {
@@ -134,7 +134,7 @@ pub fn set_ui_config_item(key: String, value: serde_json::Value) -> Result<(), A
 #[tauri::command]
 pub fn init_account(password: String, timestamp: u64) -> Result<(), AppError> {
     // 获取可写的 wallet 引用
-    let mut wallet = APP_STATE.wallet.write().unwrap();
+    let mut wallet = APP_STATE.wallet.lock().unwrap();
     
     // 创建 vault
     let (vault, _address, _path) = wallet.create_vault(
