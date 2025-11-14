@@ -36,10 +36,8 @@ pub fn run() {
             core::db::message_delete,
             core::db::message_list,
             // Utils 相关命令
-            utils::ps_check::check_password_strength,
             utils::i18n::set_lang,
             utils::i18n::t,
-            utils::qr::scan_qr,
             // Browser 相关命令
             browser::webview::open_dapp,
             browser::webview::wallet_request,

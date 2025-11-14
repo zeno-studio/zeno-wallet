@@ -20,7 +20,8 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'",
+      "capabilities": [ "desktop-capability", "mobile-capability"]
     }
   },
   "bundle": {
