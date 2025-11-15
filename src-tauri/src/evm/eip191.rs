@@ -1,4 +1,6 @@
 use alloy_primitives::{Signature, keccak256, B256};
+use crate::error::AppError;
+
 
 pub fn hash_eip191_message(
     message: &str,

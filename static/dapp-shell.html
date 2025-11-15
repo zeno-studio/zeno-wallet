@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8" />
+  <!-- 安全沙箱策略 -->
+  <meta http-equiv="Content-Security-Policy" content="
+            default-src 'self';
+            script-src 'self';
+            connect-src 'self' https:;
+            img-src 'self' data: https:;
+            style-src 'self' 'unsafe-inline';
+            frame-src 'none';
+        ">
+  <title>DApp</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+ html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      background: #fff;
+      font-family: sans-serif;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    #dapp-frame {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    /* 顶部 Nav */
+    .nav {
+      background: #1a1a1a;
+      color: white;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+      user-select: none;
+    }
+
+    .balance {
+      font-weight: bold;
+    }
+
+    .network {
+      background: #333;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+
+    .close {
+      cursor: pointer;
+      font-size: 20px;
+    }
+
+    /* WebView 容器 */
+    .webview-container {
+      flex: 1;
+      position: relative;
+    }
+
+   .webview {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    /* Modal */
+    .modal {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: none;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-content {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 320px;
+      text-align: center;
+    }
+
+    .btn {
+      margin: 8px;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .confirm {
+      background: #007bff;
+      color: white;
+    }
+
+    .cancel {
+      background: #6c757d;
+      color: white;
+    }
+  </style>
+</head>
+
+<body>
+  <!-- 顶部 Nav -->
+  <div class="nav">
+    <div class="balance" id="balance">0.00 ETH</div>
+    <div class="network" id="network">Ethereum Mainnet</div>
+    <div class="close" id="close-btn">×</div>
+  </div>
+
+  <!-- WebView 加载 DApp -->
+  <div class="webview-container">
+    <webview id="dapp-webview" src="about:blank"></webview>
+  </div>
+
+  <!-- 交易确认 Modal -->
+  <div class="modal" id="tx-modal">
+    <div class="modal-content">
+      <h3>确认交易</h3>
+      <p id="tx-details">发送 0.1 ETH 到 0x...</p>
+      <button class="btn confirm" id="confirm-tx">确认</button>
+      <button class="btn cancel" id="cancel-tx">取消</button>
+    </div>
+  </div>
+
+  <script>
+    const { invoke, event } = window.__TAURI__;
+    const webview = document.getElementById('dapp-webview');
+    const modal = document.getElementById('tx-modal');
+    const balanceEl = document.getElementById('balance');
+    const networkEl = document.getElementById('network');
+    const closeBtn = document.getElementById('close-btn');
+    // 启动时获取
+    invoke('get_theme').then(dark => {
+      document.body.classList.toggle('dark', dark);
+    });
+
+    let pendingTx = null;
+
+    // === 1. 监听 main 窗口事件 ===
+    event.listen('dapp:open', async (e) => {
+      const { url, title } = e.payload;
+      document.title = title;
+      webview.src = url;
+      updateBalance();
+    });
+
+    event.listen('dapp:update-balance', (e) => {
+      balanceEl.textContent = e.payload;
+    });
+
+    event.listen('dapp:update-network', (e) => {
+      networkEl.textContent = e.payload;
+    });
+
+    event.listen('theme:changed', (e) => {
+      document.body.classList.toggle('dark', e.payload);
+    });
+    // === 2. 关闭按钮 ===
+    document.getElementById('close-btn').onclick = () => {
+      invoke('close_dapp_window');
+    };
+
+    // === 3. 拦截 DApp 的签名请求 ===
+    webview.addEventListener('dom-ready', () => {
+      webview.executeJavaScript(`
+            (function() {
+        let id = 0;
+        const callbacks = new Map();
+
+        window.ethereum = {
+          isMetaMask: true,
+          isConnected: () => true,
+          chainId: '0x1',
+          selectedAddress: '0xYourAddress',
+
+          request: async (request) => {
+            const { method, params } = request;
+            const reqId = ++id;
+
+            return new Promise((resolve, reject) => {
+              callbacks.set(reqId, { resolve, reject });
+
+              window.__TAURI__.postMessage({
+                type: 'ETH_REQUEST',
+                payload: { id: reqId, method, params }
+              });
+            });
+          },
+
+          on: (event, handler) => window.__TAURI__.event.listen(event, handler),
+          removeListener: (event, handler) => window.__TAURI__.event.unlisten(event, handler)
+        };
+
+        // 接收 Rust 响应
+        window.addEventListener('message', (e) => {
+          if (e.data.type === 'ETH_RESPONSE') {
+            const { id, result, error } = e.data.payload;
+            const cb = callbacks.get(id);
+            if (cb) {
+              error ? cb.reject(error) : cb.resolve(result);
+              callbacks.delete(id);
+            }
+          }
+        });
+      })();
+          `);
+    });
+
+    // === 4. 接收 DApp 签名请求 ===
+    window.addEventListener('message', async (e) => {
+      if (e.data.type === 'ETH_SIGN') {
+        pendingTx = e.data.payload;
+        document.getElementById('tx-details').textContent =
+        \`发送签名请求：\${pendingTx.msg.slice(0, 30)}...\`;
+            modal.style.display = 'flex';
+          }
+        });
+
+        // === 5. 用户确认 ===
+        document.getElementById('confirm-tx').onclick = async () => {
+          modal.style.display = 'none';
+          const sig = await invoke('sign_transaction', pendingTx);
+          webview.executeJavaScript(`window.signResolve('\${sig}')`);
+        };
+
+        document.getElementById('cancel-tx').onclick = () => {
+          modal.style.display = 'none';
+          webview.executeJavaScript(`window.signResolve(null)`);
+        };
+
+        // === 6. 更新余额 ===
+        async function updateBalance() {
+          const bal = await invoke('get_balance');
+          balanceEl.textContent = bal;
+        }
+  </script>
+</body>
+
+</html>

@@ -1,27 +1,68 @@
-#[allow(dead_code)]
-use once_cell::sync::Lazy;
+use bincode::{Decode, Encode};
 use rust_rocksdb::{
-    ColumnFamilyDescriptor, DBWithThreadMode, Direction, IteratorMode,
-    MultiThreaded, Options, WriteBatch,
+    ColumnFamilyDescriptor, DBWithThreadMode, Direction, IteratorMode, MultiThreaded, Options,
+    SliceTransform, WriteBatch,
 };
 use serde::{Deserialize, Serialize};
-use std::sync::RwLock;
 use std::sync::Arc;
-use z_wallet_core::{Vault,};
-use bincode::{Decode, Encode};
-
-// 引入Tauri插件相关模块和路径API
-use tauri::{Manager};
-
+use tauri::Manager;
 // 引入自定义错误类型
-use crate::error::{AppError, DbResult};
+use crate::activities::tx::TransactionHistoryEntry;
+use crate::error::AppError;
 
-// ========== 全局 DB 实例 ==========
-pub static DB_INSTANCE: Lazy<RwLock<Option<DBWithThreadMode<MultiThreaded>>>> =
-    Lazy::new(|| RwLock::new(None));
+pub type DbResult<T> = Result<T, AppError>;
+
+pub struct AppDB {
+    pub db: Arc<DBWithThreadMode<MultiThreaded>>,
+}
+
+impl AppDB {
+    /// 初始化 RocksDB，注册到 Tauri
+    pub fn init(app_handle: &tauri::AppHandle) -> DbResult<Self> {
+        // 1. 获取数据目录
+        let app_dir = app_handle.path().app_data_dir().map_err(|e| {
+            AppError::Io(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to get app data directory: {}", e),
+            ))
+        })?;
+
+        let path = app_dir.join("walletdb");
+        std::fs::create_dir_all(&path).map_err(AppError::Io)?;
+
+        // 2. 配置 Options
+        let mut opts = Options::default();
+        opts.create_if_missing(true);
+        opts.create_missing_column_families(true);
+        opts.set_prefix_extractor(SliceTransform::create_fixed_prefix(8));
+
+        // 3. 定义 Column Families
+        let cf_names = vec![
+            "default",
+            TableKind::Config.as_str(),
+            TableKind::Vault.as_str(),
+            TableKind::Account.as_str(),
+            TableKind::AddressBook.as_str(),
+            TableKind::TxHistory.as_str(),
+            TableKind::MsgHistory.as_str(),
+            TableKind::CustomRpc.as_str(),
+        ];
+
+        let cfs: Vec<_> = cf_names
+            .iter()
+            .map(|name| ColumnFamilyDescriptor::new(*name, Options::default()))
+            .collect();
+
+        // 4. 打开数据库
+        let db = DBWithThreadMode::<MultiThreaded>::open_cf_descriptors(&opts, &path, cfs)
+            .map_err(|e| AppError::DbWriteError(e.to_string()))?;
+
+        Ok(Self { db: Arc::new(db) })
+    }
+}
 
 // ========== 表分类 ==========
-#[derive(Debug, Clone, Copy,Encode, Decode, PartialEq)]
+#[derive(Debug, Clone, Copy, Encode, Decode, PartialEq)]
 pub enum TableKind {
     Config,
     Vault,
@@ -46,129 +87,6 @@ impl TableKind {
     }
 }
 // ========== 数据结构定义 ==========
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct UiConfig {
-    pub locale: Option<String>,
-    pub dark_mode: Option<bool>,
-    pub current_account_index: Option<u64>,
-    pub next_account_index: Option<u64>,
-    pub next_watch_account_index: Option<u64>,
-    pub next_airgap_account_index: Option<u64>,
-    pub next_hdwallet_account_index: Option<u64>,
-    pub auto_lock: Option<bool>,
-    pub auto_lock_timer: Option<u64>,
-    pub active_apps: Option<Vec<App>>,
-    pub hidden_apps: Option<Vec<App>>,
-    pub currency: Option<String>,
-    pub fiat: Option<String>,
-    pub is_initialized: Option<bool>,
-    pub is_keystore_backuped: Option<bool>,
-}
-
-impl Default for UiConfig {
-    fn default() -> Self {
-        Self {
-            locale: Some("en".to_string()),
-            dark_mode: Some(false),
-            current_account_index: Some(0),
-            next_account_index: Some(1),
-            next_watch_account_index: Some(101),
-            next_airgap_account_index: Some(201),
-            next_hdwallet_account_index: Some(301),
-            auto_lock: Some(true),
-            auto_lock_timer: Some(900), // in seconds
-            active_apps: None,
-            hidden_apps: None,
-            currency: Some("ETH".to_string()),
-            fiat: Some("USD".to_string()),
-            is_initialized: Some(false),
-            is_keystore_backuped: Some(false),
-        }
-    }
-}
-
-
-#[derive(Debug, Serialize, Deserialize, Clone,Encode, Decode, PartialEq)]
-pub struct Account{
-    pub name: String,
-    pub address: String,
-    pub account_type: String, // local | watch
-    pub account_index: u64,
-    pub derive_path: String,
-    pub avatar: Option<String>, // emoji, 支持多字
-    pub memo: Option<String>,
-    pub ens: Option<String>,
-    pub nft: Option<String>,  // {chain_idid ,address,tokenid}
-    pub created_at: u64,
-    pub is_hidden: bool,
-}
-
-impl Default for Account {
-    fn default() -> Self {
-        Self {
-            name: "".to_string(),
-            address: "".to_string(),
-            account_type: "local".to_string(),
-            account_index: 0,
-            derive_path: "".to_string(),
-            avatar: None,
-            memo: None,
-            ens: None,
-            nft: None,
-            created_at:0,
-            is_hidden: false,
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone,Encode, Decode, PartialEq)]
-pub struct AddressBookEntry {
-    pub name: String,
-    pub address: String,
-    pub category: String,
-    pub memo: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone,Encode, Decode, PartialEq)]
-pub struct TransactionHistoryEntry {
-    pub chain_id: u64,
-    pub tx_hash: String,
-    pub from: String,
-    pub to: String,
-    pub value: String,
-    pub timestamp: u64,
-    pub status: Option<String>,
-    pub raw: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
-pub struct MessageHistoryEntry {
-    pub chain_id: u64,
-    pub msg_type: String, // "191" | "712"
-    pub signer: String,
-    pub msg_hash: String,
-    pub payload: serde_json::Value,
-    pub signature: Option<String>,
-    pub timestamp: u64,
-    pub status: Option<String>,
-}
-
-// 为App结构实现Encode和Decode trait
-#[derive(Debug, Serialize, Deserialize, Clone, Encode, Decode)]
-pub struct App {
-    id: u64,
-    name: String,
-    app_path: String,
-    description: String,
-    supported_chain_id_ids: Vec<u64>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone,Encode, Decode, PartialEq)]
-pub struct CustomRpc {
-    pub chain_id: u64,
-    pub endpoint: String,
-    pub protocol: String,
-}
 
 // ========== 通用 Manager ==========
 pub struct TableManager<'a> {
@@ -176,8 +94,6 @@ pub struct TableManager<'a> {
     cf: Arc<rust_rocksdb::BoundColumnFamily<'a>>,
     prefix: &'static str,
 }
-
-
 
 impl<'a> TableManager<'a> {
     pub fn new(db: &'a DBWithThreadMode<MultiThreaded>, kind: TableKind) -> DbResult<Self> {
@@ -215,13 +131,16 @@ impl<'a> TableManager<'a> {
             .map_err(|e| AppError::DbWriteError(e.to_string()))
     }
 
-    pub fn get<T: Deserialize<'static> + bincode::Decode<()>>(&self, field: &[u8]) -> DbResult<Option<T>> {
+    pub fn get<T: Deserialize<'static> + bincode::Decode<()>>(
+        &self,
+        field: &[u8],
+    ) -> DbResult<Option<T>> {
         match self.db.get_cf(&self.cf, field) {
             Ok(Some(data)) => {
                 let result = bincode::decode_from_slice::<T, _>(&data, bincode::config::standard())
                     .map_err(|e| AppError::DbDeserializationError(e.to_string()))?;
                 Ok(Some(result.0))
-            },
+            }
             Ok(None) => Ok(None),
             Err(e) => Err(AppError::DbReadError(e.to_string())),
         }
@@ -239,7 +158,7 @@ impl<'a> TableManager<'a> {
         let mut prefix_bytes = Vec::new();
         prefix_bytes.extend_from_slice(self.prefix.as_bytes());
         prefix_bytes.push(b':');
-        
+
         let iter = self.db.prefix_iterator_cf(&self.cf, &prefix_bytes);
         for item in iter {
             match item {
@@ -287,7 +206,9 @@ impl<'a> TxHistoryManager<'a> {
         let key = Self::make_key(item.chain_id, item.timestamp, &item.tx_hash);
         let value = bincode::encode_to_vec(item, bincode::config::standard())
             .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-        self.db.put(key, value).map_err(|e| AppError::DbWriteError(e.to_string()))
+        self.db
+            .put(key, value)
+            .map_err(|e| AppError::DbWriteError(e.to_string()))
     }
 
     pub fn range(
@@ -298,21 +219,21 @@ impl<'a> TxHistoryManager<'a> {
     ) -> DbResult<Vec<TransactionHistoryEntry>> {
         let start = from.unwrap_or(0);
         let end = to.unwrap_or(u64::MAX);
-        
+
         // 创建前缀 key 用于迭代
         let mut prefix = Vec::new();
         prefix.extend_from_slice("tx".as_bytes());
         prefix.push(b':');
         prefix.extend_from_slice(&chain_id.to_be_bytes());
         prefix.push(b':');
-        
+
         // 创建起始和结束 key
         let mut start_key = prefix.clone();
         start_key.extend_from_slice(&start.to_be_bytes());
-        
+
         let mut end_key = prefix.clone();
         end_key.extend_from_slice(&end.to_be_bytes());
-        
+
         let iter = self
             .db
             .iterator(IteratorMode::From(&start_key, Direction::Forward));
@@ -325,7 +246,10 @@ impl<'a> TxHistoryManager<'a> {
                     if key.as_ref() > end_key.as_slice() || !key.starts_with(&prefix) {
                         break;
                     }
-                    match bincode::decode_from_slice::<TransactionHistoryEntry, _>(&value, bincode::config::standard()) {
+                    match bincode::decode_from_slice::<TransactionHistoryEntry, _>(
+                        &value,
+                        bincode::config::standard(),
+                    ) {
                         Ok((item, _)) => result.push(item),
                         Err(e) => {
                             eprintln!("Failed to decode transaction history entry: {}", e);
@@ -350,13 +274,16 @@ impl<'a> TxHistoryManager<'a> {
         prefix.push(b':');
         prefix.extend_from_slice(&chain_id.to_be_bytes());
         prefix.push(b':');
-        
+
         let iter = self.db.prefix_iterator(&prefix);
 
         for item in iter {
             match item {
                 Ok((_key, value)) => {
-                    match bincode::decode_from_slice::<TransactionHistoryEntry, _>(&value, bincode::config::standard()) {
+                    match bincode::decode_from_slice::<TransactionHistoryEntry, _>(
+                        &value,
+                        bincode::config::standard(),
+                    ) {
                         Ok((item, _)) => {
                             if item.tx_hash == id {
                                 return Ok(Some(item));
@@ -384,16 +311,21 @@ impl<'a> TxHistoryManager<'a> {
         prefix.push(b':');
         prefix.extend_from_slice(&chain_id.to_be_bytes());
         prefix.push(b':');
-        
+
         let iter = self.db.prefix_iterator(&prefix);
-        
+
         for item in iter {
             match item {
                 Ok((key, value)) => {
-                    match bincode::decode_from_slice::<TransactionHistoryEntry, _>(&value, bincode::config::standard()) {
+                    match bincode::decode_from_slice::<TransactionHistoryEntry, _>(
+                        &value,
+                        bincode::config::standard(),
+                    ) {
                         Ok((item, _)) => {
                             if item.tx_hash == id {
-                                self.db.delete(&key).map_err(|e| AppError::DbWriteError(e.to_string()))?;
+                                self.db
+                                    .delete(&key)
+                                    .map_err(|e| AppError::DbWriteError(e.to_string()))?;
                                 break;
                             }
                         }
@@ -421,7 +353,9 @@ impl<'a> TxHistoryManager<'a> {
                 .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
             batch.put(key, &data);
         }
-        self.db.write(&batch).map_err(|e| AppError::DbWriteError(e.to_string()))
+        self.db
+            .write(&batch)
+            .map_err(|e| AppError::DbWriteError(e.to_string()))
     }
 
     /// 批量删除：根据 tx_hash 匹配
@@ -432,14 +366,17 @@ impl<'a> TxHistoryManager<'a> {
         prefix.push(b':');
         prefix.extend_from_slice(&chain_id.to_be_bytes());
         prefix.push(b':');
-        
+
         let iter = self.db.prefix_iterator(&prefix);
         let mut batch = WriteBatch::default();
 
         for item in iter {
             match item {
                 Ok((key, value)) => {
-                    match bincode::decode_from_slice::<TransactionHistoryEntry, _>(&value, bincode::config::standard()) {
+                    match bincode::decode_from_slice::<TransactionHistoryEntry, _>(
+                        &value,
+                        bincode::config::standard(),
+                    ) {
                         Ok((item, _)) => {
                             if ids.contains(&item.tx_hash) {
                                 batch.delete(&key);
@@ -458,255 +395,8 @@ impl<'a> TxHistoryManager<'a> {
             }
         }
 
-        self.db.write(&batch).map_err(|e| AppError::DbWriteError(e.to_string()))
+        self.db
+            .write(&batch)
+            .map_err(|e| AppError::DbWriteError(e.to_string()))
     }
-}
-
-// ========== VAULT ==========
-#[tauri::command]
-pub fn vault_get(key: String) -> Result<Option<Vault>, AppError> {
-    let guard = DB_INSTANCE.read().unwrap();
-    let db = guard.as_ref().ok_or(AppError::DbNotInitialized)?;
-    let mgr = TableManager::new(db, TableKind::Vault)?;
-    
-    // 创建二进制 key
-    let key = mgr.key_from_str(&key);
-    
-    // 获取存储的 JSON 字符串
-    if let Some(vault_str) = mgr.get::<String>(&key)? {
-        // 反序列化为 Vault 对象
-        let vault: Vault = serde_json::from_str(&vault_str)
-            .map_err(|e| AppError::JsonParseError(e))?;
-        Ok(Some(vault))
-    } else {
-        Ok(None)
-    }
-}
-
-#[tauri::command]
-pub fn vault_add(key: String, vault: Vault) -> Result<(), AppError> {
-    let guard = DB_INSTANCE.read().unwrap();
-    let db = guard.as_ref().ok_or(AppError::DbNotInitialized)?;
-    let mgr = TableManager::new(db, TableKind::Vault)?;
-    
-    // 创建二进制 key
-     let key = mgr.key_from_str(&key);
-    
-    // 序列化为 JSON 字符串再存储
-    let vault_str = serde_json::to_string(&vault)
-        .map_err(|e| AppError::JsonParseError(e))?;
-    mgr.set(&key, &vault_str)?;
-    Ok(())
-}
-
-
-// ========== ADDRESSBOOK ==========
-#[tauri::command]
-pub fn addressbook_list(category: Option<String>) -> Result<Vec<AddressBookEntry>, AppError> {
-    let db = DB_INSTANCE.read().unwrap();
-    let db = db.as_ref().ok_or(AppError::DbNotInitialized)?;
-    let mgr = TableManager::new(db, TableKind::AddressBook)?;
-    let list = mgr.list::<AddressBookEntry>()?;
-    Ok(match category {
-        Some(cat) => list.into_iter().filter(|a| a.category == cat).collect(),
-        None => list,
-    })
-}
-
-#[tauri::command]
-pub fn addressbook_add(entry: AddressBookEntry) -> Result<(), AppError> {
-    let db = DB_INSTANCE.read().unwrap();
-    let db = db.as_ref().ok_or(AppError::DbNotInitialized)?;
-    let mgr = TableManager::new(db, TableKind::AddressBook)?;
-    // 创建二进制 key
-    let key = mgr.key_from_str(&entry.address);
-    mgr.set(&key, &entry)
-}
-
-#[tauri::command]
-pub fn addressbook_delete(address: String) -> Result<(), AppError> {
-    let db = DB_INSTANCE.read().unwrap();
-    let db = db.as_ref().ok_or(AppError::DbNotInitialized)?;
-    let mgr = TableManager::new(db, TableKind::AddressBook)?;
-    // 创建二进制 key
-    let key = mgr.key_from_str(&address);
-    mgr.delete(&key)
-}
-
-#[tauri::command]
-pub fn tx_list(
-    chain_id: u64,
-    from: Option<u64>,
-    to: Option<u64>,
-) -> Result<Vec<TransactionHistoryEntry>, AppError> {
-    let guard = DB_INSTANCE.read().unwrap();
-    let db = guard.as_ref().ok_or(AppError::DbNotInitialized)?;
-    let mgr = TxHistoryManager::new(db);
-    mgr.range(chain_id, from, to)
-}
-
-// ========== CUSTOM RPC ==========
-#[tauri::command]
-pub fn custom_rpc_list() -> Result<Vec<CustomRpc>, AppError> {
-    let db = DB_INSTANCE.read().unwrap();
-    let db = db.as_ref().ok_or(AppError::DbNotInitialized)?;
-    let mgr = TableManager::new(db, TableKind::CustomRpc)?;
-    mgr.list::<CustomRpc>()
-}
-
-#[tauri::command]
-pub fn custom_rpc_add(rpc: CustomRpc) -> Result<(), AppError> {
-    let db = DB_INSTANCE.read().unwrap();
-    let db = db.as_ref().ok_or(AppError::DbNotInitialized)?;
-    let mgr = TableManager::new(db, TableKind::CustomRpc)?;
-    let mut key = mgr.key_from_u64(rpc.chain_id);
-    key.push(b':');
-    key.extend_from_slice(&rpc.protocol.as_bytes());
-
-    mgr.set(&key, &rpc)
-}
-
-#[tauri::command]
-pub fn custom_rpc_delete(chain_id: u64, protocol: String) -> Result<(), AppError> {
-    let guard = DB_INSTANCE.read().unwrap();
-    let db = guard.as_ref().ok_or(AppError::DbNotInitialized)?;
-    let mgr = TableManager::new(db, TableKind::CustomRpc)?;
-    let mut key = mgr.key_from_u64(chain_id);
-    key.push(b':');
-    key.extend_from_slice(&protocol.as_bytes());
-    mgr.delete(&key)
-}
-
-
-
-// ========== MESSAGE HISTORY ==========
-#[tauri::command]
-pub fn tx_add(entry: TransactionHistoryEntry) -> Result<(), AppError> {
-    let db = DB_INSTANCE.read().unwrap();
-    let db = db.as_ref().ok_or(AppError::DbNotInitialized)?;
-    let mgr = TxHistoryManager::new(db);
-    mgr.insert(&entry)
-}
-
-#[tauri::command]
-pub fn tx_find(chain_id: u64, hash: String) -> Result<Option<TransactionHistoryEntry>, AppError> {
-    let guard = DB_INSTANCE.read().unwrap();
-    let db = guard.as_ref().ok_or(AppError::DbNotInitialized)?;
-    let mgr = TxHistoryManager::new(db);
-    mgr.find(chain_id, &hash)
-}
-
-#[tauri::command]
-pub fn tx_delete(chain_id: u64, hash: String) -> Result<(), AppError> {
-    let guard = DB_INSTANCE.read().unwrap();
-    let db = guard.as_ref().ok_or(AppError::DbNotInitialized)?;
-    let mgr = TxHistoryManager::new(db);
-    mgr.delete(chain_id, &hash)
-}
-
-#[tauri::command]
-pub fn tx_batch_insert(items: Vec<TransactionHistoryEntry>) -> Result<(), AppError> {
-    let guard = DB_INSTANCE.read().unwrap();
-    let db = guard.as_ref().ok_or(AppError::DbNotInitialized)?;
-    let mgr = TxHistoryManager::new(db);
-    mgr.batch_insert(&items)
-}
-
-#[tauri::command]
-pub fn tx_batch_delete(chain_id: u64, hashs: Vec<String>) -> Result<(), AppError> {
-    let guard = DB_INSTANCE.read().unwrap();
-    let db = guard.as_ref().ok_or(AppError::DbNotInitialized)?;
-    let mgr = TxHistoryManager::new(db);
-    mgr.batch_delete(chain_id, &hashs)
-}
-
-// ========== MESSAGE HISTORY ==========
-#[tauri::command]
-pub fn message_add(chain_id: u64, hash: String, entry: MessageHistoryEntry) -> Result<(), AppError> {
-    let db = DB_INSTANCE.read().unwrap();
-    let db = db.as_ref().ok_or(AppError::DbNotInitialized)?;
-    let mgr = TableManager::new(db, TableKind::MsgHistory)?;
-     let mut key = mgr.key_from_u64(chain_id);
-    key.push(b':');
-    key.extend_from_slice(&hash.as_bytes());
-    let entry_str = serde_json::to_string(&entry).map_err(AppError::JsonParseError)?;
-    mgr.set(&key, &entry_str)
-}
-
-#[tauri::command]
-pub fn message_delete(chain_id: u64, hash: String) -> Result<(), AppError> {
-    let db = DB_INSTANCE.read().unwrap();
-    let db = db.as_ref().ok_or(AppError::DbNotInitialized)?;
-    let mgr = TableManager::new(db, TableKind::MsgHistory)?;
-    let mut key = Vec::new();
-    key.extend_from_slice(&chain_id.to_be_bytes());
-    key.push(b':');
-    key.extend_from_slice(&hash.as_bytes());
-    // 创建二进制 key
-    mgr.delete(&key)
-}
-
-#[tauri::command]
-pub fn message_list(chain_id: Option<u64>) -> Result<Vec<MessageHistoryEntry>, AppError> {
-    let db = DB_INSTANCE.read().unwrap();
-    let db = db.as_ref().ok_or(AppError::DbNotInitialized)?;
-    let mgr = TableManager::new(db, TableKind::MsgHistory)?;
-    let list = mgr.list::<String>()?; // 存储的是JSON字符串
-    let mut result = Vec::new();
-    for item_str in list {
-        match serde_json::from_str::<MessageHistoryEntry>(&item_str) {
-            Ok(item) => {
-                if let Some(ref c) = chain_id {
-                    if item.chain_id == *c {
-                        result.push(item);
-                    }
-                } else {
-                    result.push(item);
-                }
-            }
-            Err(e) => {
-                // 跳过无法解析的项，记录错误但不中断
-                eprintln!("Failed to parse message history entry: {}", e);
-                continue;
-            }
-        }
-    }
-    Ok(result)
-}
-
-
-
-
-// ========== DB 初始化 ==========
-pub fn db_init(app_handle: &tauri::AppHandle) -> DbResult<()> {
-    // 使用 Tauri 2 的 app dir API
-    let app_dir = app_handle.path().app_data_dir()
-        .map_err(|e| AppError::Io(std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to get app data directory: {}", e))))?;
-    let path = app_dir.join("walletdb");
-
-    let mut opts = Options::default();
-    opts.create_if_missing(true);
-    opts.create_missing_column_families(true);
-    opts.set_prefix_extractor(rust_rocksdb::SliceTransform::create_fixed_prefix(8)); // 优化 prefix 读取
-
-    let cf_names = vec![
-        "default",
-        TableKind::Config.as_str(),
-        TableKind::Vault.as_str(),
-        TableKind::Account.as_str(),
-        TableKind::AddressBook.as_str(),
-        TableKind::TxHistory.as_str(),
-        TableKind::MsgHistory.as_str(),
-        TableKind::CustomRpc.as_str(),
-    ];
-
-    let cfs: Vec<_> = cf_names
-        .iter()
-        .map(|name| ColumnFamilyDescriptor::new(*name, Options::default()))
-        .collect();
-
-    let db = DBWithThreadMode::<MultiThreaded>::open_cf_descriptors(&opts, &path, cfs)
-        .map_err(|e| AppError::DbWriteError(e.to_string()))?;
-    *DB_INSTANCE.write().unwrap() = Some(db);
-    Ok(())
 }

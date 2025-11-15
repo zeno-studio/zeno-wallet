@@ -1,6 +1,6 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
-  import { router } from './lib/runes/states/router.svelte';
+  import { router } from './states/router.svelte';
   import type { Component } from 'svelte';
 
   let name = 'qlt';

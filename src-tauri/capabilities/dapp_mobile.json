@@ -1,0 +1,14 @@
+{
+  "identifier": "dapp-mobile",
+  "description": "Capability for the dapp window (mobile)",
+  "platforms": ["android", "iOS"],
+  "windows": ["dapp"],
+  "permissions": [
+    "core:app:default",
+    "core:event:default",
+
+    "biometric:allow-authenticate",
+    "barcode-scanner:allow-scan"
+
+  ]
+}

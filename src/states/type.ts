@@ -158,11 +158,9 @@ export interface UiState {
   auto_lock?: boolean;
   auto_lock_timer?: number; 
   active_apps?: App[]|null;
-  hidden_apps?: App[]|null;
   currency?: string;
   fiat?: string;
   is_initialized?: boolean;
-  is_keystore_backuped?: boolean;
 }
 
 export const DefaultUiConfig: UiState= {
@@ -176,9 +174,7 @@ export const DefaultUiConfig: UiState= {
   auto_lock: true,
   auto_lock_timer: 900,
   active_apps: null,
-  hidden_apps: null,
   currency: "ETH",
   fiat: "USD",
   is_initialized: false,
-  is_keystore_backuped: false,
 };

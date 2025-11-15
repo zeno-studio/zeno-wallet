@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { router } from '../lib/runes';
+  import { router } from '../states';
   
   let theme = 'light';
   let language = 'zh';

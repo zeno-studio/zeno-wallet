@@ -1,14 +1,19 @@
 {
-  "identifier": "mobile-capability",
-  "platforms": [
-    "android",
-    "iOS"
-  ],
-  "windows": [
-    "main"
-  ],
+  "identifier": "main_mobile",
+  "description": "Capability for the wallet main window (mobile)",
+  "platforms": ["android", "iOS"],
+  "windows": ["main"],
   "permissions": [
+    "core:default",
+    "core:webview:allow-create-webview",
+    "core:webview:allow-create-webview-window",
+    "core:webview:allow-webview-close",
+    "core:webview:allow-webview-hide",
+    "core:webview:allow-webview-show",
+    "core:webview:deny-internal-toggle-devtools",
+
     "biometric:allow-authenticate",
     "barcode-scanner:allow-scan"
+
   ]
 }

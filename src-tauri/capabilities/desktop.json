@@ -1,18 +1,16 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
-  "identifier": "desktop-capability",
-  "description": "Capability for the main window",
-  "platforms": ["linux", "windows"],
-  "windows": [
-    "main"
-  ],
+  "identifier": "main_desktop",
+  "description": "Capability for the wallet main window (desktop)",
+  "platforms": ["linux", "macOS", "windows"],  
+  "windows": ["main"],
   "permissions": [
     "core:default",
-    "core:window:default",
     "core:webview:allow-create-webview",
     "core:webview:allow-create-webview-window",
-    "core:webview:allow-internal-toggle-devtools"
-
+    "core:webview:allow-webview-close",
+    "core:webview:allow-webview-hide",
+    "core:webview:allow-webview-show",
+    "core:webview:deny-internal-toggle-devtools"
   ]
-  
 }

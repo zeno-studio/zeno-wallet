@@ -34,9 +34,12 @@ pub enum AppError {
     DbReadError(String),
     DbKeyNotFound,
     DbAccountNotFound(u64),
+    DbVaultNotFound(String),
     
     // Wallet Core errors
     WalletCoreError(String),
+    // state errors
+    AlreadyInitialized,
 }
 
 impl fmt::Display for AppError {
@@ -71,9 +74,13 @@ impl fmt::Display for AppError {
             AppError::DbReadError(e) => write!(f, "Database read error: {}", e),
             AppError::DbKeyNotFound => write!(f, "Database key not found"),
             AppError::DbAccountNotFound(index) => write!(f, "Database account not found: {}", index),
+            AppError::DbVaultNotFound(key) => write!(f, "Database vault not found: {}", key),
             
             // Wallet Core errors
             AppError::WalletCoreError(e) => write!(f, "Wallet core error: {}", e),
+            // state errors
+            AppError::AlreadyInitialized => write!(f, "Already initialized"),
+            
         }
     }
 }
@@ -101,6 +108,3 @@ impl From<AppError> for InvokeError {
     }
 }
 
-
-/// 数据库操作结果类型别名
-pub type DbResult<T> = std::result::Result<T, AppError>;
