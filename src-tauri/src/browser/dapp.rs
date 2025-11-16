@@ -1,7 +1,10 @@
 use serde::{Deserialize, Serialize};
-use tauri::{Manager, Window};
-use std::sync::Arc;
-use crate::core::state::APP_STATE;
+use tauri::{ WebviewWindow};
+use tauri::Emitter;
+
+use tauri::State;
+use crate::error::AppError;
+use crate::core::state::{AppState, get_ui_config};
 
 #[derive(Debug, Deserialize)]
 pub struct WebviewEthRequest {
@@ -11,7 +14,7 @@ pub struct WebviewEthRequest {
     pub origin: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct EthResponse {
     pub id: u64,
     pub result: Option<serde_json::Value>,
@@ -23,17 +26,16 @@ pub struct EthResponse {
 // We'll implement commands to be invoked from the shell HTML as well.
 
 #[tauri::command]
-pub fn get_darkmode() -> bool {
-    let darkmode = APP_STATE.ui_config.lock().unwrap().dark_mode;
-    match darkmode {
-        Some(dark_mode) => dark_mode,
-        None => false,
-    };
-    false
+pub fn get_darkmode(state: State<AppState>) -> Result<bool,AppError> {
+    let ui_config = get_ui_config(state)?;
+    match ui_config.dark_mode {
+        Some(dark_mode) => Ok(dark_mode),
+        None => Ok(false),
+    }
 }
 
 #[tauri::command]
-pub fn close_dapp_window(window: Window) {
+pub fn close_dapp_window(window: WebviewWindow) {
     let _ = window.close();
 }
 
@@ -82,7 +84,7 @@ pub async fn sign_transaction(
         "data": req.params,
     });
     // Assuming your dapp window label is "dapp"
-    let _ = app_handle.emit_all("SHELL_SHOW_MODAL", payload);
+    let _ = app_handle.emit("SHELL_SHOW_MODAL", &payload);
 
     // In production you'd block / await user confirmation via another command or event
     // For demo, we simulate immediate user confirmation:
@@ -97,7 +99,7 @@ pub async fn sign_transaction(
                 error: None,
             };
             // backend uses Window::emit to forward result to the shell which will forward into the webview
-            let _ = app_handle.emit_all("ETH_RESPONSE", resp);
+            let _ = app_handle.emit("ETH_RESPONSE", &resp);
             Ok(sig)
         }
         Err(e) => {
@@ -106,7 +108,7 @@ pub async fn sign_transaction(
                 result: None,
                 error: Some(serde_json::Value::String(e.clone())),
             };
-            let _ = app_handle.emit_all("ETH_RESPONSE", resp);
+            let _ = app_handle.emit("ETH_RESPONSE", &resp);
             Err(e)
         }
     }
@@ -126,33 +128,32 @@ pub async fn open_dapp_window(
     app: tauri::AppHandle,
     url: String,
 ) -> Result<(), String> {
-    let label = format!("dapp-{}", uuid::Uuid::new_v4());
+    // 根据不同平台使用不同的label
+    #[cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))]
+    let label = "dapp-desktop";
+    
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    let label = "dapp-mobile";
+    
+    // 检查URL是否被允许
+    if !is_allowed_url(&url) {
+        return Err("URL not allowed".to_string());
+    }
 
     let win = tauri::WebviewWindowBuilder::new(
         &app,
-        &label,
+        label,
         tauri::WebviewUrl::External(url.parse().unwrap()),
     )
     .title("Dapp Browser")
     .build()
     .map_err(|e| e.to_string())?;
 
-    let mut ui = APP_STATE.ui_config.lock().await;
-
-    let session = DappSession {
-        window_label: label.clone(),
-        origin: url.clone(),
-        provider: ProviderConfig {
-            chain_id: ui.current_chain_id,
-            accounts: ui.current_account.clone().into_iter().collect(),
-            selected_address: ui.current_account.clone(),
-        }
-    };
-
-    ui.dapp_sessions.insert(label.clone(), session.clone());
-
-    win.emit("wallet:provider-config", &session.provider)
-        .map_err(|e| e.to_string())?;
+    // 发送事件到窗口，通知DApp已打开
+    let _ = win.emit("dapp:open", serde_json::json!({
+        "url": url,
+        "title": "Dapp Browser"
+    }));
 
     Ok(())
 }
@@ -164,3 +165,20 @@ fn is_allowed_url(url: &str) -> bool {
     !url.contains("tauri://")
 }
 
+// 添加获取当前账户地址的命令
+// #[tauri::command]
+// pub fn get_current_address() -> Result<String, String> {
+//     let ui_config = APP_STATE.ui_config.lock().unwrap();
+//     // 这里应该从实际的账户列表中获取当前账户地址
+//     // 现在返回一个示例地址
+//     Ok("0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6".to_string())
+// }
+
+// // 添加获取链ID的命令
+// #[tauri::command]
+// pub fn get_chain_id() -> Result<String, String> {
+//     let ui_config = APP_STATE.ui_config.lock().unwrap();
+//     // 这里应该从实际的链配置中获取当前链ID
+//     // 现在返回以太坊主网ID
+//     Ok("0x1".to_string())
+// }

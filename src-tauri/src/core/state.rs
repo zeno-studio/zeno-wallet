@@ -23,12 +23,11 @@ pub struct AppState {
     pub is_locked: Arc<Mutex<bool>>,
 }
 
-
-
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct UiConfig {
     pub locale: Option<String>,
     pub dark_mode: Option<bool>,
+    pub current_account_address: Option<String>,
     pub current_account_index: Option<u64>,
     pub next_account_index: Option<u64>,
     pub next_watch_account_index: Option<u64>,
@@ -48,6 +47,7 @@ impl Default for UiConfig {
             locale: Some("en".to_string()),
             dark_mode: Some(false),
             current_account_index: Some(0),
+            current_account_address: Some("0x0".to_string()),
             next_account_index: Some(1),
             next_watch_account_index: Some(101),
             next_airgap_account_index: Some(201),
@@ -71,10 +71,7 @@ impl AppState {
                 ui_config = config_batch_get(appdb.clone())?;
                 if let Some(vault) = vault_get(VaultType::V1.to_string(), appdb.clone()).unwrap() {
                     wallet = WalletCore {
-                        version: Some(vault.version),
-                        salt: Some(vault.salt),
-                        nonce: Some(vault.nonce),
-                        ciphertext: Some(vault.ciphertext),
+                        vault,
                         derived_key: None,
                         expire_time: None,
                         cache_duration: Some(constants::DEFAULT_CACHE_DURATION),

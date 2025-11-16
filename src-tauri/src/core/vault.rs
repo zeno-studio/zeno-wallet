@@ -1,9 +1,8 @@
 use crate::core::db::{AppDB, TableKind, TableManager};
-use crate::core::state::AppState;
 use crate::error::AppError;
 use tauri::State;
 
-use z_wallet_core::{Vault, WalletCore, constants};
+use z_wallet_core::{Vault,constants};
 
 pub enum VaultType {
     V1,
@@ -59,15 +58,5 @@ pub fn create_keystore(key: String, appdb: State<AppDB>) -> Result<String, AppEr
     Err(AppError::DbVaultNotFound(key_clone))
 }
 
-#[tauri::command]
 
-pub fn import_account(
-    key: String,
-    keystore: String,
-    password: String,
-    appdb: State<AppDB>,
-    state: State<AppState>,
-) -> Result<(), AppError> {
-    
 
-}

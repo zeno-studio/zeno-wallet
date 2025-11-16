@@ -1,30 +1,27 @@
 use crate::core::state::{AppState, get_current_chain, get_ui_config};
 use crate::error::AppError;
 use crate::rpc::https::EthRpcProvider;
-use z_wallet_core::WalletCore;
-use alloy_consensus::TxEip7702;
-use alloy_eips::eip7702::{Authorization, SignedAuthorization};
+use alloy_consensus::TxEip1559;
+use alloy_eips::eip1559::BaseFeeParams;
 use alloy_eips::eip2930::AccessList;
-use alloy_primitives::{Address, Bytes, TxKind, U256, Signature};
+use alloy_primitives::{Address, Bytes, TxKind, U256};
 use serde::Deserialize;
 use serde_json::Value;
 use tauri::State;
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct Eip7702TxParams {
+pub struct Eip1559TxParams {
     pub to: Address,
     pub value_wei: U256,
     pub input: Bytes,
     pub access_list: AccessList,
-    pub authorization_list_unsign: Vec<Authorization>,
 }
 
-pub async fn build_eip7702_tx(
+pub async fn build_eip1559_tx(
     provider: EthRpcProvider,
     params: Value,
     state: State<'_, AppState>,
-    wallet: WalletCore
-) -> Result<TxEip7702, AppError> {
+) -> Result<TxEip1559, AppError> {
     let chain_id = get_current_chain(state.clone())?;
     let ui_config = get_ui_config(state.clone())?;
     let from = ui_config
@@ -33,7 +30,7 @@ pub async fn build_eip7702_tx(
 
     // 验证 chain_id
 
-    let params: Eip7702TxParams =
+    let params: Eip1559TxParams =
         serde_json::from_value(params).map_err(AppError::JsonParseError)?;
 
     // 3. 获取 nonce
@@ -47,26 +44,17 @@ pub async fn build_eip7702_tx(
     let max_priority_fee_per_gas = 2_000_000_000u128; // 2 Gwei
     let max_fee_per_gas = base_fee_per_gas + max_priority_fee_per_gas;
 
-    // 处理授权列表
-    let mut signed_authorization_list = Vec::new();
-    for authorization in &params.authorization_list_unsign {
-        // 创建一个空的签名（实际应用中需要正确签名）
-        let sig = wallet.sign_tx(&authorization)?;
-        signed_authorization_list.push(authorization.clone().into_signed(sig));
-    }
-
-    // 6. 构造 EIP-7702 交易请求
-    let tx = TxEip7702 {
+    // 6. 构造 EIP-1559 交易请求
+    let tx = TxEip1559 {
         chain_id,
         nonce: nonce as u64,
         gas_limit: 21000,
         max_fee_per_gas: max_fee_per_gas as u128,
         max_priority_fee_per_gas: max_priority_fee_per_gas as u128,
-        to: params.to,
+        to: TxKind::Call(params.to),
         value: params.value_wei,
         input: params.input,
-        access_list: params.access_list.clone(),
-        authorization_list: signed_authorization_list,
+        access_list: params.access_list,
     };
     Ok(tx)
 }

@@ -1,4 +1,4 @@
-use alloy_primitives::{Signature, keccak256, B256};
+use alloy_primitives::{keccak256, B256};
 use crate::error::AppError;
 
 
@@ -9,4 +9,5 @@ pub fn hash_eip191_message(
     let digest = keccak256([prefix.as_bytes(), message.as_bytes()].concat());
     Ok(digest)
 }
+
 

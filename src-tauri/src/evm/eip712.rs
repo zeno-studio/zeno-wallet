@@ -16,15 +16,15 @@ impl EIP712 {
     /// Compute the EIP-712 domain-separated message digest from JSON input.
     /// Keep signature stable for easy replacement, now returns AppError.
     pub fn hash_eip712_message(json: &str) -> Result<B256, AppError> {
-        let value: Value = serde_json::from_str(json).map_err(|_| AppError::JsonParseError)?;
+        let value: Value = serde_json::from_str(json)?;
 
-        let domain = value.get("domain").ok_or(AppError::MissingDomain)?;
-        let types = value.get("types").ok_or(AppError::MissingTypes)?;
+        let domain = value.get("domain").ok_or(AppError::Eip712MissingDomain)?;
+        let types = value.get("types").ok_or(AppError::Eip712MissingTypes)?;
         let primary_type = value
             .get("primaryType")
             .and_then(|v| v.as_str())
-            .ok_or(AppError::MissingPrimaryType)?;
-        let message = value.get("message").ok_or(AppError::MissingMessage)?;
+            .ok_or(AppError::Eip712MissingPrimaryType)?;
+        let message = value.get("message").ok_or(AppError::Eip712MissingMessage)?;
 
         let struct_hash = Self::struct_hash(types, primary_type, message)?;
         let domain_hash = if types.get("EIP712Domain").is_some() {
@@ -48,20 +48,20 @@ impl EIP712 {
         let fields = types
             .get(struct_name)
             .and_then(|v| v.as_array())
-            .ok_or(AppError::TypeFieldsNotArray)?;
+            .ok_or(AppError::Eip712TypeFieldsNotArray)?;
 
         for field in fields {
             let name = field
                 .get("name")
                 .and_then(|v| v.as_str())
-                .ok_or(AppError::FieldMissingName)?;
+                .ok_or(AppError::Eip712FieldMissingName)?;
             let typ = field
                 .get("type")
                 .and_then(|v| v.as_str())
-                .ok_or(AppError::FieldMissingType)?;
-            let value = data.get(name).ok_or(AppError::MissingFieldValue)?;
+                .ok_or(AppError::Eip712FieldMissingType)?;
+            let value = data.get(name).ok_or(AppError::Eip712MissingFieldValue)?;
             let encoded_value =
-                Self::encode_value(types, typ, value).map_err(|_| AppError::JsonParseError)?;
+                Self::encode_value(types, typ, value)?;
             encoded.extend_from_slice(encoded_value.as_slice());
         }
 
@@ -107,18 +107,18 @@ impl EIP712 {
         let fields = types
             .get(typ)
             .and_then(|v| v.as_array())
-            .ok_or(AppError::TypeFieldsNotArray)?;
+            .ok_or(AppError::Eip712TypeFieldsNotArray)?;
 
         let mut parts: Vec<String> = Vec::with_capacity(fields.len());
         for f in fields {
             let name = f
                 .get("name")
                 .and_then(|v| v.as_str())
-                .ok_or(AppError::FieldMissingName)?;
+                .ok_or(AppError::Eip712FieldMissingName)?;
             let field_typ = f
                 .get("type")
                 .and_then(|v| v.as_str())
-                .ok_or(AppError::FieldMissingType)?;
+                .ok_or(AppError::Eip712FieldMissingType)?;
             parts.push(format!("{} {}", field_typ, name));
         }
         Ok(format!("{}({})", typ, parts.join(",")))
@@ -134,7 +134,7 @@ impl EIP712 {
     ) -> Result<(), AppError> {
         let typ_owned = typ.to_string();
         if path.contains(&typ_owned) {
-            return Err(AppError::CycleDetected);
+            return Err(AppError::Eip712CycleDetected);
         }
         path.push(typ_owned.clone());
 
@@ -142,12 +142,12 @@ impl EIP712 {
             let fields = types
                 .get(&typ_owned)
                 .and_then(|v| v.as_array())
-                .ok_or(AppError::TypeFieldsNotArray)?;
+                .ok_or(AppError::Eip712TypeFieldsNotArray)?;
             for field in fields {
                 let field_typ = field
                     .get("type")
                     .and_then(|v| v.as_str())
-                    .ok_or(AppError::FieldMissingType)?;
+                    .ok_or(AppError::Eip712FieldMissingType)?;
                 let parsed = Self::parse_type(field_typ);
                 if types.get(&parsed.base).is_some() {
                     Self::collect_types(types, &parsed.base, collected, path)?;
@@ -171,12 +171,12 @@ impl EIP712 {
         // If there are array dimensions -> current level is array
         if !parsed.array_dims.is_empty() {
             // value must be array
-            let arr = value.as_array().ok_or(AppError::UnsupportedType)?;
+            let arr = value.as_array().ok_or(AppError::Eip712UnsupportedType)?;
             // check current (first) dimension length if fixed
             if let Some(Some(expected)) = parsed.array_dims.first()
                 && arr.len() != *expected
             {
-                return Err(AppError::UnsupportedType);
+                return Err(AppError::Eip712UnsupportedType);
             }
             // For each element, encode with a parsed type that has one fewer dimension
             let mut concat: Vec<u8> = Vec::new();
@@ -206,9 +206,9 @@ impl EIP712 {
             "address" => {
                 let addr_str = Self::value_to_string(value)?;
                 let addr_clean = addr_str.strip_prefix("0x").unwrap_or(&addr_str);
-                let addr_bytes = hex_decode(addr_clean).map_err(|_| AppError::InvalidAddress)?;
+                let addr_bytes = hex_decode(addr_clean)?;
                 if addr_bytes.len() != 20 {
-                    return Err(AppError::InvalidAddress);
+                    return Err(AppError::InvalidAddressLength(addr_bytes.len() as u64));
                 }
                 let mut padded = [0u8; 32];
                 padded[12..].copy_from_slice(&addr_bytes);
@@ -218,7 +218,7 @@ impl EIP712 {
                 let b = match value {
                     Value::Bool(bb) => *bb,
                     Value::String(s) => s.to_lowercase() == "true",
-                    _ => return Err(AppError::InvalidNumber),
+                    _ => return Err(AppError::InvalidBooleanParse(value.clone()))
                 };
                 let num = if b { U256::ONE } else { U256::ZERO };
                 Ok(B256::from_slice(&num.to_be_bytes::<32>()))
@@ -226,20 +226,20 @@ impl EIP712 {
             t if t.starts_with("uint") => {
                 let bits = Self::parse_bits(t, "uint")?;
                 let num_str = Self::value_to_string(value)?;
-                let num = U256::from_str(&num_str).map_err(|_| AppError::UnsupportedType)?;
+                let num = U256::from_str(&num_str)?;
                 if bits < 256 && num.bit_len() > bits {
-                    return Err(AppError::UnsupportedType);
+                    return Err(AppError::Eip712UnsupportedType);
                 }
                 Ok(B256::from_slice(&num.to_be_bytes::<32>()))
             }
             t if t.starts_with("int") => {
                 let bits = Self::parse_bits(t, "int")?;
                 let num_str = Self::value_to_string(value)?;
-                let num = I256::from_str(&num_str).map_err(|_| AppError::UnsupportedType)?;
+                let num = I256::from_str(&num_str)?;
                 if bits < 256 {
                     let abs = num.unsigned_abs();
                     let limit = if bits == 0 {
-                        return Err(AppError::InvalidTypePrefix);
+                        return Err(AppError::Eip712InvalidTypePrefix);
                     } else {
                         U256::ONE << (bits - 1)
                     };
@@ -249,7 +249,7 @@ impl EIP712 {
                         abs >= limit
                     };
                     if overflow {
-                        return Err(AppError::ValueOverflow);
+                        return Err(AppError::Eip712ValueOverflow);
                     }
                 }
                 Ok(B256::from_slice(&num.to_be_bytes::<32>()))
@@ -258,10 +258,9 @@ impl EIP712 {
                 // bytesN: N is byte count (not bits), range 1..=32
                 let bytes_len = Self::parse_bits(t, "bytes")?;
                 let s = Self::value_to_string(value)?;
-                let b = hex_decode(s.strip_prefix("0x").unwrap_or(&s))
-                    .map_err(|_| AppError::InvalidBytesHex)?;
+                let b: Vec<u8> = hex_decode(s.strip_prefix("0x").unwrap_or(&s)).map_err(AppError::InvalidBytesHex)?;
                 if b.len() > bytes_len {
-                    return Err(AppError::ValueOverflow);
+                    return Err(AppError::Eip712ValueOverflow);
                 }
                 let mut padded = [0u8; 32];
                 padded[..b.len()].copy_from_slice(&b);
@@ -269,15 +268,14 @@ impl EIP712 {
             }
             "bytes" => {
                 let s = Self::value_to_string(value)?;
-                let b = hex_decode(s.strip_prefix("0x").unwrap_or(&s))
-                    .map_err(|_| AppError::InvalidBytesHex)?;
+                let b: Vec<u8> = hex_decode(s.strip_prefix("0x").unwrap_or(&s)).map_err(AppError::InvalidBytesHex)?;
                 Ok(keccak256(&b))
             }
             "string" => {
                 let s = Self::value_to_string(value)?;
                 Ok(keccak256(s.as_bytes()))
             }
-            _ => Err(AppError::UnsupportedType),
+            _ => Err(AppError::Eip712UnsupportedType),
         }
     }
 
@@ -326,20 +324,20 @@ impl EIP712 {
 
     /// Parse bit/size suffix and validate ranges.
     fn parse_bits(typ: &str, prefix: &str) -> Result<usize, AppError> {
-        let suff = typ.strip_prefix(prefix).ok_or(AppError::InvalidTypePrefix)?;
-        let bits = suff.parse::<usize>().map_err(|_| AppError::InvalidTypePrefix)?;
+        let suff = typ.strip_prefix(prefix).ok_or(AppError::Eip712InvalidTypePrefix)?;
+        let bits = suff.parse::<usize>()?;
         match prefix {
             "bytes" => {
                 if bits == 0 || bits > 32 {
-                    return Err(AppError::InvalidTypePrefix);
+                    return Err(AppError::Eip712InvalidTypePrefix);
                 }
             }
             "uint" | "int" => {
                 if bits == 0 || bits > 256 || (bits % 8 != 0) {
-                    return Err(AppError::InvalidTypePrefix);
+                    return Err(AppError::Eip712InvalidTypePrefix);
                 }
             }
-            _ => return Err(AppError::InvalidTypePrefix),
+            _ => return Err(AppError::Eip712InvalidTypePrefix),
         }
         Ok(bits)
     }
@@ -349,7 +347,7 @@ impl EIP712 {
         match value {
             Value::String(s) => Ok(s.clone()),
             Value::Number(n) => Ok(n.to_string()),
-            _ => Err(AppError::UnsupportedType),
+            _ => Err(AppError::Eip712UnsupportedType),
         }
     }
 
@@ -368,7 +366,7 @@ impl EIP712 {
         if let Some(v) = domain.get("name") {
             match v {
                 Value::String(s) => enc.extend_from_slice(keccak256(s.as_bytes()).as_slice()),
-                _ => return Err(AppError::DomainFallbackInvalid),
+                _ => return Err(AppError::Eip712DomainFallbackInvalid),
             }
         } else {
             enc.extend_from_slice(&[0u8; 32]);
@@ -378,7 +376,7 @@ impl EIP712 {
         if let Some(v) = domain.get("version") {
             match v {
                 Value::String(s) => enc.extend_from_slice(keccak256(s.as_bytes()).as_slice()),
-                _ => return Err(AppError::DomainFallbackInvalid),
+                _ => return Err(AppError::Eip712DomainFallbackInvalid),
             }
         } else {
             enc.extend_from_slice(&[0u8; 32]);
@@ -387,7 +385,7 @@ impl EIP712 {
         // chainId (accept number or string numeric)
         if let Some(v) = domain.get("chainId") {
             let s = Self::value_to_string(v)?;
-            let num = U256::from_str(&s).map_err(|_| AppError::DomainFallbackInvalid)?;
+            let num = U256::from_str(&s)?;
             enc.extend_from_slice(&num.to_be_bytes::<32>());
         } else {
             enc.extend_from_slice(&[0u8; 32]);
@@ -397,9 +395,9 @@ impl EIP712 {
         if let Some(v) = domain.get("verifyingContract") {
             let s = Self::value_to_string(v)?;
             let addr_clean = s.strip_prefix("0x").unwrap_or(&s);
-            let addr_bytes = hex_decode(addr_clean).map_err(|_| AppError::DomainFallbackInvalid)?;
+            let addr_bytes = hex_decode(addr_clean)?;
             if addr_bytes.len() != 20 {
-                return Err(AppError::DomainFallbackInvalid);
+                return Err(AppError::Eip712DomainFallbackInvalid);
             }
             let mut padded = [0u8; 32];
             padded[12..].copy_from_slice(&addr_bytes);
@@ -411,10 +409,9 @@ impl EIP712 {
         // salt (bytes32 hex)
         if let Some(v) = domain.get("salt") {
             let s = Self::value_to_string(v)?;
-            let b = hex_decode(s.strip_prefix("0x").unwrap_or(&s))
-                .map_err(|_| AppError::DomainFallbackInvalid)?;
+            let b = hex_decode(s.strip_prefix("0x").unwrap_or(&s))?;
             if b.len() != 32 {
-                return Err(AppError::DomainFallbackInvalid);
+                return Err(AppError::Eip712DomainFallbackInvalid);
             }
             enc.extend_from_slice(&b);
         } else {

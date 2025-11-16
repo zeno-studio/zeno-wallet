@@ -7,6 +7,9 @@ mod utils;
 mod activities;
 mod rpc;
 mod evm;
+mod revm;
+mod auth;
+
 
 use tauri::Manager;
 
@@ -23,9 +26,16 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             // core 相关命令
-                  // Utils 相关命令
+            // Utils 相关命令
             utils::i18n::set_lang,
-            utils::i18n::t
+            utils::i18n::t,
+            // Browser/DApp 相关命令
+            browser::dapp::get_darkmode,
+            browser::dapp::close_dapp_window,
+            browser::dapp::get_balance,
+            browser::dapp::sign_transaction,
+            browser::dapp::dapp_post_message,
+            browser::dapp::open_dapp_window,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

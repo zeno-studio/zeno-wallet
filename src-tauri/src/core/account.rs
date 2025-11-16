@@ -1,6 +1,6 @@
 use crate::core::db::{AppDB, TableKind, TableManager};
-use crate::core::state::{AppState,config_get, get_wallet, set_ui_config_item};
-use crate::core::vault::{vault_add};
+use crate::core::state::{AppState, config_get, get_wallet, set_ui_config_item};
+use crate::core::vault::vault_add;
 
 use crate::error::AppError;
 use crate::utils::time;
@@ -130,8 +130,8 @@ pub fn init_local_account(
     let (vault, address, path) = wallet
         .create_vault(
             &password,
-            constants::DEFAULT_CACHE_DURATION,
             constants::DEFAULT_ENTROPY_BITS,
+            Some(constants::DEFAULT_CACHE_DURATION),
             time::now_s(),
         )
         .map_err(|e| AppError::WalletCoreError(e.to_string()))?;
@@ -236,3 +236,65 @@ pub fn hide_local_account(
     Ok(())
 }
 
+pub fn import_account(
+    keystore: String,
+    password: String,
+    appdb: State<AppDB>,
+    state: State<AppState>,
+) -> Result<(), AppError> {
+    if let Ok(Some(init)) = config_get("is_initialized".to_string(), appdb.clone()) {
+        if init == "true" {
+            return Err(AppError::AlreadyInitialized);
+        }
+    }
+    let vault = Vault::from_keystore_string(&keystore)
+        .map_err(|e| AppError::WalletCoreError(e.to_string()))?;
+    vault
+        .verify_password(&password)
+        .map_err(|e| AppError::WalletCoreError(e.to_string()))?;
+    let mut wallet = get_wallet(state.clone())?;
+
+    // Clone the vault before it's moved to import_vault
+    let vault_for_storage = vault.clone();
+    let (address, path) = wallet
+        .import_vault(
+            &password,
+            vault,
+            Some(constants::DEFAULT_CACHE_DURATION),
+            time::now_s(),
+        )
+        .map_err(|e| AppError::WalletCoreError(e.to_string()))?;
+    let init_account = Account {
+        name: format!("Account {}", 0),
+        address: address,
+        account_type: AccountType::Local.to_string(),
+        account_index: 0,
+        derive_path: path,
+        created_at: time::now_s(),
+        ..Default::default()
+    };
+
+    // 保存到数据库
+    vault_add(VaultType::V1.to_string(), vault_for_storage, appdb.clone())?;
+    account_add(0u64, init_account, appdb.clone())?;
+    set_ui_config_item(
+        "current_account_index".to_string(),
+        serde_json::Value::Number(serde_json::Number::from(1)),
+        appdb.clone(),
+        state.clone(),
+    )?;
+    set_ui_config_item(
+        "next_account_index".to_string(),
+        serde_json::Value::Number(serde_json::Number::from(2)),
+        appdb.clone(),
+        state.clone(),
+    )?;
+    set_ui_config_item(
+        "is_initialized".to_string(),
+        serde_json::Value::Bool(true),
+        appdb,
+        state,
+    )?;
+
+    Ok(())
+}

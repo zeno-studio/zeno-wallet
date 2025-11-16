@@ -1,30 +1,36 @@
 use core::fmt;
 use tauri::ipc::InvokeError;
+use serde::Serialize;
+
+use alloy_primitives::{ParseSignedError, ruint};
 
 #[derive(Debug)]
 pub enum AppError {
+    // Standard errors
     Io(std::io::Error),
     Parse(&'static str),
     JsonParseError(serde_json::Error),
+    HexDecodeError(hex::FromHexError),
+    InvalidAddressLength(u64),
+    InvalidNumber(std::num::ParseIntError),
+    InvalidBytesHex(hex::FromHexError),
+    InvalidBooleanParse(serde_json::Value),
 
     //eip712
-    MissingDomain,
-    MissingTypes,
-    MissingPrimaryType,
-    MissingMessage,
-    TypeFieldsNotArray,
-    FieldMissingName,
-    FieldMissingType,
-    MissingFieldValue,
-    CycleDetected,
-    UnsupportedType,
-    InvalidAddress,
-    InvalidNumber,
-    InvalidBytesHex,
-    InvalidTypePrefix,
-    ValueOverflow,
-    DomainFallbackInvalid,
-    
+    Eip712MissingDomain,
+    Eip712MissingTypes,
+    Eip712MissingPrimaryType,
+    Eip712MissingMessage,
+    Eip712TypeFieldsNotArray,
+    Eip712FieldMissingName,
+    Eip712FieldMissingType,
+    Eip712MissingFieldValue,
+    Eip712CycleDetected,
+    Eip712UnsupportedType,
+    Eip712InvalidTypePrefix,
+    Eip712ValueOverflow,
+    Eip712DomainFallbackInvalid,
+
     // Database errors
     DbNotInitialized,
     DbColumnFamilyNotFound,
@@ -35,11 +41,15 @@ pub enum AppError {
     DbKeyNotFound,
     DbAccountNotFound(u64),
     DbVaultNotFound(String),
-    
+
     // Wallet Core errors
     WalletCoreError(String),
     // state errors
     AlreadyInitialized,
+    InvalidPassword,
+
+    // RPC errors
+    HttpsRpcError(String),
 }
 
 impl fmt::Display for AppError {
@@ -47,40 +57,47 @@ impl fmt::Display for AppError {
         match self {
             AppError::Io(e) => write!(f, "IO error: {}", e),
             AppError::Parse(s) => write!(f, "Parse error: {}", s),
-            AppError::JsonParseError(e) => write!(f,"Json parse error:{}",e),
+            AppError::JsonParseError(e) => write!(f, "Json parse error:{}", e),
+            AppError::HexDecodeError(e) => write!(f, "Hex decode error: {}", e),
+            AppError::InvalidBooleanParse(e) => write!(f, "Invalid boolean parse: {}", e),
+            AppError::InvalidAddressLength(e) => write!(f, "Invalid address: {}", e),
+            AppError::InvalidNumber(e) => write!(f, "Invalid number: {}", e),
+            AppError::InvalidBytesHex(e) => write!(f, "Invalid bytes hex: {}", e),
             //eip712
-            AppError::MissingDomain => write!(f, "EIP712 domain missing"),
-            AppError::MissingTypes => write!(f, "EIP712 types missing"),
-            AppError::MissingPrimaryType => write!(f, "primaryType missing or not a string"),
-            AppError::MissingMessage => write!(f, "message object missing"),
-            AppError::TypeFieldsNotArray => write!(f, "type definition must be an array"),
-            AppError::FieldMissingName => write!(f, "field missing \"name\""),
-            AppError::FieldMissingType => write!(f, "field missing \"type\""),
-            AppError::MissingFieldValue => write!(f, "field value missing in message"),
-            AppError::CycleDetected => write!(f, "type definition cycle detected"),
-            AppError::UnsupportedType => write!(f, "unsupported EIP712 type"),
-            AppError::InvalidAddress => write!(f, "invalid address (must be 20 bytes)"),
-            AppError::InvalidNumber => write!(f, "invalid numeric value"),
-            AppError::InvalidBytesHex => write!(f, "invalid hex string for bytes"),
-            AppError::InvalidTypePrefix => write!(f, "invalid type prefix/suffix"),
-            AppError::ValueOverflow => write!(f, "numeric value overflow"),
-            AppError::DomainFallbackInvalid => write!(f, "invalid domain fallback field"),
+            AppError::Eip712MissingDomain => write!(f, "EIP712 domain missing"),
+            AppError::Eip712MissingTypes => write!(f, "EIP712 types missing"),
+            AppError::Eip712MissingPrimaryType => write!(f, "primaryType missing or not a string"),
+            AppError::Eip712MissingMessage => write!(f, "message object missing"),
+            AppError::Eip712TypeFieldsNotArray => write!(f, "type definition must be an array"),
+            AppError::Eip712FieldMissingName => write!(f, "field missing \"name\""),
+            AppError::Eip712FieldMissingType => write!(f, "field missing \"type\""),
+            AppError::Eip712MissingFieldValue => write!(f, "field value missing in message"),
+            AppError::Eip712CycleDetected => write!(f, "type definition cycle detected"),
+            AppError::Eip712UnsupportedType => write!(f, "unsupported EIP712 type"),
+            AppError::Eip712InvalidTypePrefix => write!(f, "invalid type prefix/suffix"),
+            AppError::Eip712ValueOverflow => write!(f, "numeric value overflow"),
+            AppError::Eip712DomainFallbackInvalid => write!(f, "invalid domain fallback field"),
             // Database errors
             AppError::DbNotInitialized => write!(f, "Database not initialized"),
             AppError::DbColumnFamilyNotFound => write!(f, "Database column family not found"),
             AppError::DbSerializationError(e) => write!(f, "Database serialization error: {}", e),
-            AppError::DbDeserializationError(e) => write!(f, "Database deserialization error: {}", e),
+            AppError::DbDeserializationError(e) => {
+                write!(f, "Database deserialization error: {}", e)
+            }
             AppError::DbWriteError(e) => write!(f, "Database write error: {}", e),
             AppError::DbReadError(e) => write!(f, "Database read error: {}", e),
             AppError::DbKeyNotFound => write!(f, "Database key not found"),
-            AppError::DbAccountNotFound(index) => write!(f, "Database account not found: {}", index),
+            AppError::DbAccountNotFound(index) => {
+                write!(f, "Database account not found: {}", index)
+            }
             AppError::DbVaultNotFound(key) => write!(f, "Database vault not found: {}", key),
-            
+
             // Wallet Core errors
             AppError::WalletCoreError(e) => write!(f, "Wallet core error: {}", e),
             // state errors
             AppError::AlreadyInitialized => write!(f, "Already initialized"),
-            
+            AppError::InvalidPassword => write!(f, "Invalid password"),
+            AppError::HttpsRpcError(e) => write!(f, "HTTPS RPC error: {}", e),
         }
     }
 }
@@ -91,6 +108,40 @@ impl std::error::Error for AppError {
             AppError::Io(e) => Some(e),
             _ => None,
         }
+    }
+}
+
+impl From<serde_json::Error> for AppError {
+    fn from(error: serde_json::Error) -> Self {
+        AppError::JsonParseError(error)
+    }
+}
+
+impl From<ruint::ParseError> for AppError {
+    fn from(_error: ruint::ParseError) -> Self {
+        // Create a ParseIntError by parsing an invalid string
+        let err = "invalid".parse::<u32>().unwrap_err();
+        AppError::InvalidNumber(err)
+    }
+}
+
+impl From<ParseSignedError> for AppError {
+    fn from(_error: ParseSignedError) -> Self {
+        // Create a ParseIntError by parsing an invalid string
+        let err = "invalid".parse::<u32>().unwrap_err();
+        AppError::InvalidNumber(err)
+    }
+}
+
+impl From<hex::FromHexError> for AppError {
+    fn from(error: hex::FromHexError) -> Self {
+        AppError::InvalidBytesHex(error)
+    }
+}
+
+impl From<std::num::ParseIntError> for AppError {
+    fn from(error: std::num::ParseIntError) -> Self {
+        AppError::InvalidNumber(error)
     }
 }
 
@@ -107,4 +158,3 @@ impl From<AppError> for InvokeError {
         InvokeError::from(error.to_string())
     }
 }
-
