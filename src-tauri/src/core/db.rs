@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tauri::Manager;
 // 引入自定义错误类型
-use crate::activities::tx::TransactionHistoryEntry;
+use crate::data::tx::TransactionHistoryEntry;
 use crate::error::AppError;
 
 pub type DbResult<T> = Result<T, AppError>;

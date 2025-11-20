@@ -163,7 +163,7 @@ export interface UiState {
   is_initialized?: boolean;
 }
 
-export const DefaultUiConfig: UiState= {
+export const DefaultPersistentConfig: UiState= {
   locale: 'en',
   dark_mode: false,
   current_account_index: 0,

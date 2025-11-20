@@ -413,73 +413,101 @@
     function injectEthereumProvider() {
       webview.executeJavaScript(`
         (function() {
-          if (window.ethereum) {
-            console.warn('Ethereum provider already exists');
-            return;
-          }
+          // EIP-6963: Multi Injected Provider Discovery
+          const EIP6963ProviderDetail = {
+            info: {
+              uuid: 'zeno-wallet-' + Math.random().toString(36).substr(2, 9),
+              name: 'Zeno Wallet',
+              icon: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMTIgMkM2LjQ4IDAgMiA0LjQ4IDIgMTBDMiAxNS41MiA2LjQ4IDIwIDEyIDIwQzE3LjUyIDIwIDIyIDE1LjUyIDIyIDEwQzIyIDQuNDggMTcuNTIgMCAxMiAyWk0xMCAxN0w1IDEyTDEwIDdMMTAgMTJaTTE0IDE3TDE5IDEyTDE0IDdMMTQgMTJaIiBmaWxsPSIjMzMzMzMzIi8+Cjwvc3ZnPg==',
+              rdns: 'com.zenowallet'
+            },
+            provider: null
+          };
 
-          let id = 0;
-          const callbacks = new Map();
+          // EIP-1193 Provider implementation
+          class ZenoWalletProvider {
+            constructor() {
+              this.isZenoWallet = true;
+              this.isMetaMask = true; // For compatibility
+              this.chainId = '0x1';
+              this.selectedAddress = null;
+              this._callbacks = new Map();
+              this._id = 0;
+            }
 
-          // Ethereum Provider API 实现
-          window.ethereum = {
-            isMetaMask: true,
-            isConnected: () => true,
-            chainId: '0x1',
-            selectedAddress: null,
-
-            // EIP-1193 标准方法
-            request: async (request) => {
+            // EIP-1193 request method
+            async request(request) {
               const { method, params } = request;
-              const reqId = ++id;
+              const reqId = ++this._id;
 
               return new Promise((resolve, reject) => {
-                callbacks.set(reqId, { resolve, reject });
+                this._callbacks.set(reqId, { resolve, reject });
 
-                // 发送请求到 Rust 后端
+                // Send request to Rust backend
                 window.__TAURI__.postMessage({
                   type: 'ETH_REQUEST',
                   payload: { id: reqId, method, params }
                 });
               });
-            },
-
-            // 事件监听
-            on: (event, handler) => {
-              // 实现事件监听逻辑
-              console.log('Ethereum event listener added:', event);
-            },
-            
-            removeListener: (event, handler) => {
-              // 实现事件移除逻辑
-              console.log('Ethereum event listener removed:', event);
-            },
-            
-            enable: async () => {
-              // 兼容旧版 API
-              return await window.ethereum.request({ method: 'eth_requestAccounts' });
             }
-          };
 
-          // 接收 Rust 响应
+            // Event listener methods
+            on(event, handler) {
+              console.log('Ethereum event listener added:', event);
+            }
+
+            removeListener(event, handler) {
+              console.log('Ethereum event listener removed:', event);
+            }
+
+            enable() {
+              return this.request({ method: 'eth_requestAccounts' });
+            }
+          }
+
+          // Create provider instance
+          const provider = new ZenoWalletProvider();
+          EIP6963ProviderDetail.provider = provider;
+
+          // Announce provider according to EIP-6963
+          function announceProvider() {
+            window.dispatchEvent(new CustomEvent('eip6963:announceProvider', {
+              detail: Object.freeze(EIP6963ProviderDetail)
+            }));
+          }
+
+          // Listen for provider requests
+          window.addEventListener('eip6963:requestProvider', () => {
+            announceProvider();
+          });
+
+          // Announce provider immediately
+          announceProvider();
+
+          // Also set window.ethereum for backward compatibility
+          if (!window.ethereum) {
+            window.ethereum = provider;
+          }
+
+          // Receive responses from Rust
           window.addEventListener('message', (e) => {
             if (e.data && e.data.type === 'ETH_RESPONSE') {
               const { id, result, error } = e.data.payload;
-              const cb = callbacks.get(id);
+              const cb = provider._callbacks.get(id);
               if (cb) {
                 if (error) {
                   cb.reject(new Error(error));
                 } else {
                   cb.resolve(result);
                 }
-                callbacks.delete(id);
+                provider._callbacks.delete(id);
               }
             }
           });
 
-          // 通知 DApp Ethereum Provider 已就绪
+          // Notify DApp that Ethereum provider is ready
           window.dispatchEvent(new Event('ethereum#initialized'));
-          console.log('Ethereum provider injected');
+          console.log('Zeno Wallet provider injected (EIP-1193 & EIP-6963)');
         })();
       `);
     }

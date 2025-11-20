@@ -1,14 +1,13 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-mod browser;
+mod dapp;
 mod constants;
 mod core;
 mod error;
 mod utils;
-mod activities;
+mod data;
 mod rpc;
 mod evm;
 mod revm;
-mod auth;
 
 
 use tauri::Manager;
@@ -30,12 +29,12 @@ pub fn run() {
             utils::i18n::set_lang,
             utils::i18n::t,
             // Browser/DApp 相关命令
-            browser::dapp::get_darkmode,
-            browser::dapp::close_dapp_window,
-            browser::dapp::get_balance,
-            browser::dapp::sign_transaction,
-            browser::dapp::dapp_post_message,
-            browser::dapp::open_dapp_window,
+            dapp::dapp::get_darkmode,
+            dapp::dapp::close_dapp_window,
+            dapp::dapp::get_balance,
+            dapp::dapp::sign_transaction,
+            dapp::dapp::dapp_post_message,
+            dapp::dapp::open_dapp_window,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

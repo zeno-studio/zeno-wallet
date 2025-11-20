@@ -9,22 +9,21 @@ use crate::core::account::{account_list,VaultType};
 use crate::core::vault::{vault_get};
 use crate::error::AppError;
 use crate::core::account::{Account};
-use crate::activities::addr::{AddressBookEntry, addressbook_list};
+use crate::data::addr::{AddressBookEntry, addressbook_list};
 use rust_rocksdb::WriteBatch;
 use tauri::State;
 use bincode::{Decode, Encode};
     
 pub struct AppState {
     pub wallet: Arc<Mutex<WalletCore>>,
-    pub ui_config: Arc<Mutex<UiConfig>>,
-    pub current_chain: Arc<Mutex<u64>>,
+    pub persistent_config: Arc<Mutex<PersistentConfig>>,
+    pub session_config: Arc<Mutex<SessionConfig>>,
     pub accounts: Arc<Mutex<Vec<Account>>>,
     pub address_books: Arc<Mutex<Vec<AddressBookEntry>>>,
-    pub is_locked: Arc<Mutex<bool>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct UiConfig {
+pub struct PersistentConfig {
     pub locale: Option<String>,
     pub dark_mode: Option<bool>,
     pub current_account_address: Option<String>,
@@ -33,15 +32,24 @@ pub struct UiConfig {
     pub next_watch_account_index: Option<u64>,
     pub next_airgap_account_index: Option<u64>,
     pub next_hdwallet_account_index: Option<u64>,
-    pub auto_lock: Option<bool>,
-    pub auto_lock_timer: Option<u64>,
-    pub active_apps: Option<Vec<App>>,
+    pub wallet_lock_duration: Option<bool>,
+    pub screen_lock_duration: Option<u64>,
+    pub active_apps: Option<Vec<Apps>>,
     pub currency: Option<String>,
     pub fiat: Option<String>,
     pub is_initialized: Option<bool>,
 }
 
-impl Default for UiConfig {
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct SessionConfig {
+    pub current_account_index: Option<u64>,
+    pub current_chain: Option<u64>,
+    pub is_screen_locked: Option<bool>,
+    pub is_wallet_locked: Option<bool>,
+}
+
+impl Default for PersistentConfig {
     fn default() -> Self {
         Self {
             locale: Some("en".to_string()),
@@ -52,8 +60,8 @@ impl Default for UiConfig {
             next_watch_account_index: Some(101),
             next_airgap_account_index: Some(201),
             next_hdwallet_account_index: Some(301),
-            auto_lock: Some(true),
-            auto_lock_timer: Some(900), // in seconds
+            wallet_lock_duration: Some(true),
+            screen_lock_duration: Some(900), // in seconds
             active_apps: None,
             currency: Some("ETH".to_string()),
             fiat: Some("USD".to_string()),
@@ -65,10 +73,10 @@ impl Default for UiConfig {
 impl AppState {
     pub fn init(appdb: State<AppDB>) -> Result<AppState, AppError> {
         let mut wallet = WalletCore::default();
-        let mut ui_config = UiConfig::default();
+        let mut persistent_config = PersistentConfig::default();
         if let Ok(Some(init)) = config_get("is_initialized".to_string(), appdb.clone()) {
             if init == "true" {
-                ui_config = config_batch_get(appdb.clone())?;
+                persistent_config = config_batch_get(appdb.clone())?;
                 if let Some(vault) = vault_get(VaultType::V1.to_string(), appdb.clone()).unwrap() {
                     wallet = WalletCore {
                         vault,
@@ -85,7 +93,7 @@ impl AppState {
 
         Ok(AppState {
             wallet: Arc::new(Mutex::new(wallet)),
-            ui_config: Arc::new(Mutex::new(ui_config)),
+            persistent_config: Arc::new(Mutex::new(persistent_config)),
             current_chain: Arc::new(Mutex::new(1)),
             accounts: Arc::new(Mutex::new(accounts)),
             address_books: Arc::new(Mutex::new(address_books)),
@@ -95,7 +103,7 @@ impl AppState {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Encode, Decode)]
-pub struct App {
+pub struct Apps {
     id: u64,
     name: String,
     app_path: String,
@@ -104,8 +112,8 @@ pub struct App {
 }
 
 #[tauri::command]
-pub fn get_ui_config(state: State<AppState>) -> Result<UiConfig, AppError> {
-    Ok(state.ui_config.lock().unwrap().clone())
+pub fn get_persistent_config(state: State<AppState>) -> Result<PersistentConfig, AppError> {
+    Ok(state.persistent_config.lock().unwrap().clone())
 }
 
 pub fn get_wallet(state: State<AppState>) -> Result<WalletCore, AppError> {
@@ -124,56 +132,56 @@ pub fn get_current_chain(state: State<AppState>) -> Result<u64, AppError> {
 }
 
 #[tauri::command]
-pub fn set_ui_config_item(
+pub fn set_persistent_config_item(
     key: String,
     value: serde_json::Value,
     appdb: State<AppDB>,
     state: State<AppState>,
 ) -> Result<(), AppError> {
-    let mut ui_config = state.ui_config.lock().unwrap();
+    let mut persistent_config = state.persistent_config.lock().unwrap();
 
     // 根据 key 更新对应的字段,将配置项保存到数据库
     match key.as_str() {
         "locale" => {
             if let Some(locale) = value.as_str() {
-                ui_config.locale = Some(locale.to_string());
+                persistent_config.locale = Some(locale.to_string());
 
                 config_set(key.clone(), value.clone(), appdb)?;
             }
         }
         "dark_mode" => {
             if let Some(dark_mode) = value.as_bool() {
-                ui_config.dark_mode = Some(dark_mode);
+                persistent_config.dark_mode = Some(dark_mode);
                 config_set(key.clone(), value.clone(), appdb)?;
             }
         }
         "current_account_index" => {
             if let Some(index) = value.as_u64() {
-                ui_config.current_account_index = Some(index);
+                persistent_config.current_account_index = Some(index);
                 config_set(key.clone(), value.clone(), appdb)?;
             }
         }
-        "auto_lock" => {
-            if let Some(auto_lock) = value.as_bool() {
-                ui_config.auto_lock = Some(auto_lock);
+        "wallet_lock_duration" => {
+            if let Some(wallet_lock_duration) = value.as_bool() {
+                persistent_config.wallet_lock_duration = Some(wallet_lock_duration);
                 config_set(key.clone(), value.clone(), appdb)?;
             }
         }
-        "auto_lock_timer" => {
+        "screen_lock_duration" => {
             if let Some(timer) = value.as_u64() {
-                ui_config.auto_lock_timer = Some(timer);
+                persistent_config.screen_lock_duration = Some(timer);
                 config_set(key.clone(), value.clone(), appdb)?;
             }
         }
         "currency" => {
             if let Some(currency) = value.as_str() {
-                ui_config.currency = Some(currency.to_string());
+                persistent_config.currency = Some(currency.to_string());
                 config_set(key.clone(), value.clone(), appdb)?;
             }
         }
         "fiat" => {
             if let Some(fiat) = value.as_str() {
-                ui_config.fiat = Some(fiat.to_string());
+                persistent_config.fiat = Some(fiat.to_string());
                 config_set(key.clone(), value.clone(), appdb)?;
             }
         }
@@ -212,7 +220,7 @@ pub fn config_set(key: String, value: serde_json::Value, appdb: State<AppDB>) ->
 }
 
 // reserve function for backup
-pub fn config_batch_set(cfg: UiConfig, appdb: State<AppDB>) -> DbResult<()> {
+pub fn config_batch_set(cfg: PersistentConfig, appdb: State<AppDB>) -> DbResult<()> {
     let db = appdb.db.as_ref();
     let mut batch = WriteBatch::default();
 
@@ -251,15 +259,15 @@ pub fn config_batch_set(cfg: UiConfig, appdb: State<AppDB>) -> DbResult<()> {
             .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
         batch.put(make_config_key("next_hdwallet_account_index"), &data);
     }
-    if let Some(v) = cfg.auto_lock {
+    if let Some(v) = cfg.wallet_lock_duration {
         let data = bincode::encode_to_vec(&v, bincode::config::standard())
             .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-        batch.put(make_config_key("auto_lock"), &data);
+        batch.put(make_config_key("wallet_lock_duration"), &data);
     }
-    if let Some(v) = cfg.auto_lock_timer {
+    if let Some(v) = cfg.screen_lock_duration {
         let data = bincode::encode_to_vec(&v, bincode::config::standard())
             .map_err(|e| AppError::DbSerializationError(e.to_string()))?;
-        batch.put(make_config_key("auto_lock_timer"), &data);
+        batch.put(make_config_key("screen_lock_duration"), &data);
     }
     if let Some(v) = cfg.active_apps {
         let data = bincode::encode_to_vec(&v, bincode::config::standard())
@@ -287,10 +295,10 @@ pub fn config_batch_set(cfg: UiConfig, appdb: State<AppDB>) -> DbResult<()> {
 }
 
 // reserve function for backup
-pub fn config_batch_get(appdb: State<AppDB>) -> DbResult<UiConfig> {
+pub fn config_batch_get(appdb: State<AppDB>) -> DbResult<PersistentConfig> {
     let db = appdb.db.as_ref();
     let mgr = TableManager::new(db, TableKind::Config)?;
-    let mut cfg = UiConfig::default();
+    let mut cfg = PersistentConfig::default();
 
     cfg.locale = mgr.get::<String>(&make_config_key("locale"))?;
     cfg.dark_mode = mgr.get::<bool>(&make_config_key("dark_mode"))?;
@@ -301,8 +309,8 @@ pub fn config_batch_get(appdb: State<AppDB>) -> DbResult<UiConfig> {
         mgr.get::<u64>(&make_config_key("next_airgap_account_index"))?;
     cfg.next_hdwallet_account_index =
         mgr.get::<u64>(&make_config_key("next_hdwallet_account_index"))?;
-    cfg.auto_lock = mgr.get::<bool>(&make_config_key("auto_lock"))?;
-    cfg.auto_lock_timer = mgr.get::<u64>(&make_config_key("auto_lock_timer"))?;
+    cfg.wallet_lock_duration = mgr.get::<bool>(&make_config_key("wallet_lock_duration"))?;
+    cfg.screen_lock_duration = mgr.get::<u64>(&make_config_key("screen_lock_duration"))?;
     cfg.active_apps = mgr.get::<Vec<App>>(&make_config_key("active_apps"))?;
     cfg.currency = mgr.get::<String>(&make_config_key("currency"))?;
     cfg.fiat = mgr.get::<String>(&make_config_key("fiat"))?;

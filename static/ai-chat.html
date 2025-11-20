@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>body{font-family:system-ui;background:#111;color:#fff;padding:1rem}</style>
+</head>
+<body>
+  <div id="messages"></div>
+  <input id="input" placeholder="问我任何问题…" style="width:100%;padding:1rem;margin-top:1rem;background:#222;color:#fff;border:none;border-radius:8px">
+  
+  <script type="module">
+    import { invoke } from '@tauri-apps/api/core'
+    import { listen } from '@tauri-apps/api/event'
+    
+    // 只听主进程广播的只读上下文（永远不包含私钥/助记词）
+    listen('wallet-context', (e) => {
+      window.currentContext = e.payload  // {balance: "0.85 ETH", chain: "Ethereum", recentTx: "3笔"}
+    })
+    
+    // 发送用户问题 → Rust 后端调用本地 Ollama / Groq
+    document.getElementById('input').addEventListener('keydown', async (e) => {
+      if (e.key !== 'Enter') return
+      const query = e.target.value
+      addMessage('你', query)
+      
+      const reply = await invoke('ai_ask', { query, context: window.currentContext })
+      addMessage('AI', reply)
+      
+      // 如果 AI 建议小额支付，触发事件让主进程弹确认框
+      if (reply.includes('【建议小额支付】')) {
+        window.__TAURI__.event.emit('ai-small-payment-request', {
+          amount: '0.002 ETH',
+          to: '0x1234...abcd',
+          purpose: '支付 Gas 优化'
+        })
+      }
+      e.target.value = ''
+    })
+    
+    function addMessage(role, text) {
+      const div = document.createElement('div')
+      div.textContent = role + ': ' + text
+      div.style.margin = '0.5rem 0'
+      document.getElementById('messages').appendChild(div)
+    }
+  </script>
+  <script type="module">
+  const { invoke, listen } = window.__TAURI__;
+
+  let audioCtx = new AudioContext();
+  let bufferQueue = [];
+  let isPlaying = false;
+
+  // 监听 Rust 发来的每一块 PCM
+  listen('tts-chunk', (event) => {
+    const uint8 = new Uint8Array(event.payload);
+    const i16 = new Int16Array(uint8.buffer);
+
+    // 转成 Float32 给 Web Audio API
+    const float32 = new Float32Array(i16.length);
+    for (let i = 0; i < i16.length; i++) {
+      float32[i] = i16[i] / 32768.0;
+    }
+
+    bufferQueue.push(float32);
+    if (!isPlaying) playNext();
+  });
+
+  listen('tts-end', () => {
+    // 播完最后一块
+    setTimeout(() => bufferQueue = [], 500);
+  });
+
+  async function playNext() {
+    if (bufferQueue.length === 0) {
+      isPlaying = false;
+      return;
+    }
+    isPlaying = true;
+
+    const source = audioCtx.createBufferSource();
+    const audioBuffer = audioCtx.createBuffer(1, bufferQueue[0].length, 22050);
+    audioBuffer.getChannelData(0).set(bufferQueue[0]);
+
+    source.buffer = audioBuffer;
+    source.connect(audioCtx.destination);
+    source.start();
+
+    bufferQueue.shift();
+    source.onended = playNext;
+  }
+
+  // 用户点击“朗读”按钮
+  async function speak(text) {
+    bufferQueue = [];
+    await invoke('ai_ask', { text });
+  }
+</script>
+
+<button onclick="speak('您的交易已确认，金额 0.01 ETH')">试听</button>
+</body>
+</html>

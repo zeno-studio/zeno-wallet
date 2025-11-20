@@ -1,5 +1,5 @@
 use crate::core::db::{AppDB, TableKind, TableManager};
-use crate::core::state::{AppState, config_get, get_wallet, set_ui_config_item};
+use crate::core::state::{AppState, config_get, get_wallet, set_persistent_config_item};
 use crate::core::vault::vault_add;
 
 use crate::error::AppError;
@@ -149,19 +149,19 @@ pub fn init_local_account(
     // 保存到数据库
     vault_add(VaultType::V1.to_string(), vault, appdb.clone())?;
     account_add(0u64, init_account, appdb.clone())?;
-    set_ui_config_item(
+    set_persistent_config_item(
         "current_account_index".to_string(),
         serde_json::Value::Number(serde_json::Number::from(1)),
         appdb.clone(),
         state.clone(),
     )?;
-    set_ui_config_item(
+    set_persistent_config_item(
         "next_account_index".to_string(),
         serde_json::Value::Number(serde_json::Number::from(2)),
         appdb.clone(),
         state.clone(),
     )?;
-    set_ui_config_item(
+    set_persistent_config_item(
         "is_initialized".to_string(),
         serde_json::Value::Bool(true),
         appdb,
@@ -178,7 +178,7 @@ pub fn derive_local_account(
     state: State<AppState>,
 ) -> Result<(), AppError> {
     let mut wallet = get_wallet(state.clone())?;
-    let index = state.ui_config.lock().unwrap().next_account_index.unwrap();
+    let index = state.persistent_config.lock().unwrap().next_account_index.unwrap();
     let (address, path) = wallet
         .derive_account(&password, index as u32, time::now_s())
         .map_err(|e| AppError::WalletCoreError(e.to_string()))?;
@@ -195,15 +195,15 @@ pub fn derive_local_account(
 
     // 保存到数据库
     account_add(index, new_account, appdb.clone())?;
-    let next = state.ui_config.lock().unwrap().next_account_index.unwrap() + 1;
+    let next = state.persistent_config.lock().unwrap().next_account_index.unwrap() + 1;
 
-    set_ui_config_item(
+    set_persistent_config_item(
         "current_account_index".to_string(),
         serde_json::Value::Number(serde_json::Number::from(index)),
         appdb.clone(),
         state.clone(),
     )?;
-    set_ui_config_item(
+    set_persistent_config_item(
         "next_account_index".to_string(),
         serde_json::Value::Number(serde_json::Number::from(next)),
         appdb,
@@ -223,7 +223,7 @@ pub fn hide_local_account(
         Some(mut account) => {
             account.is_hidden = true;
             account_add(index, account, appdb.clone())?;
-            set_ui_config_item(
+            set_persistent_config_item(
                 "current_account_index".to_string(),
                 serde_json::Value::Number(serde_json::Number::from(index)),
                 appdb,
@@ -277,19 +277,19 @@ pub fn import_account(
     // 保存到数据库
     vault_add(VaultType::V1.to_string(), vault_for_storage, appdb.clone())?;
     account_add(0u64, init_account, appdb.clone())?;
-    set_ui_config_item(
+    set_persistent_config_item(
         "current_account_index".to_string(),
         serde_json::Value::Number(serde_json::Number::from(1)),
         appdb.clone(),
         state.clone(),
     )?;
-    set_ui_config_item(
+    set_persistent_config_item(
         "next_account_index".to_string(),
         serde_json::Value::Number(serde_json::Number::from(2)),
         appdb.clone(),
         state.clone(),
     )?;
-    set_ui_config_item(
+    set_persistent_config_item(
         "is_initialized".to_string(),
         serde_json::Value::Bool(true),
         appdb,
