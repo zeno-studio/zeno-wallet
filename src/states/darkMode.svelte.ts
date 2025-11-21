@@ -1,5 +1,4 @@
 import { untrack } from "svelte";
-import {type Settings} from "$lib/wallet/common";
 const COLOR_SCHEME_QUERY = "(prefers-color-scheme: dark)";
 
 type CreateDarkModeOutput = () => {

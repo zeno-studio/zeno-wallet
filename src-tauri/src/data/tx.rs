@@ -3,19 +3,26 @@ use tauri::State;
 use bincode::{Decode, Encode};
 use crate::core::db::{AppDB,TxHistoryManager};
 use crate::error::AppError;
+use alloy_primitives::{U256, U128};
 
 
 #[derive(Debug, Serialize, Deserialize, Clone, Encode, Decode, PartialEq)]
 pub struct TransactionHistoryEntry {
     pub chain_id: u64,
-    pub tx_hash: String,
+    pub hash: String,
+    pub block_number: u64,
     pub from: String,
     pub to: String,
-    pub value: String,
-    pub timestamp: u64,
+    pub value: U256,
+    pub gas_price: Option<U256>,
+    pub gas_used: Option<U256>,
+    pub timestamp: Option<u64>,
     pub status: Option<String>,
-    pub raw: Option<String>,
 }
+pub trait IntoInterTx{
+    fn into_inter(self) -> TransactionHistoryEntry;
+}
+
 
 // ========== Transaction History ==========
 #[tauri::command]

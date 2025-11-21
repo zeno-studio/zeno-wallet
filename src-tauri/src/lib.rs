@@ -8,6 +8,7 @@ mod data;
 mod rpc;
 mod evm;
 mod revm;
+mod apps;
 
 
 use tauri::Manager;
@@ -26,8 +27,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             // core 相关命令
             // Utils 相关命令
-            utils::i18n::set_lang,
-            utils::i18n::t,
+            utils::translate::set_lang,
+            utils::translate::t,
             // Browser/DApp 相关命令
             dapp::dapp::get_darkmode,
             dapp::dapp::close_dapp_window,

@@ -12,6 +12,12 @@ pub struct AddressBookEntry {
     pub memo: Option<String>,
 }
 
+impl AddressBookEntry {
+    pub fn new(name: String, address: String, category: String, memo: Option<String>) -> Self {
+        Self { name, address, category, memo }
+    }
+}
+
 // ========== ADDRESSBOOK ==========
 #[tauri::command]
 pub fn addressbook_list(

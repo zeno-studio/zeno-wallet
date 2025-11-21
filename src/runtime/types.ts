@@ -65,45 +65,7 @@ export interface AddressEntry {
   }
   
   
-  export interface TransactionHistoryEntry {
-	block_hash: string
-	block_number: string
-	from: string
-	to: string
-	value: string
-	input: string
-	nonce: number
-	gas: number
-	gas_price: number
-	gas_used: number
-	r: string
-	s: string
-	v: string
-	status:  'Pending' | 'Confirmed' | 'Failed'
-	txtype: string
-  }
-  
-  export interface MessageHistoryEntry {
-	chain: string
-	msg_type: "191" | "712"
-	signer: string
-	msg_hash: string
-	msg: any
-	signature?: string
-	timestamp: number
-	status?: string
-  }
-
-export interface CustomRpc {
-    chain: string;
-    rpc_type: string;
-    endpoint: string;
-}
-
-
-// cryptoVersion: V1;
-// kdf: 'scrypt(password, salt, { N: 2 ** 16, r: 8, p: 1, dkLen: 32 })'
-// symmetric: 'XChaCha20-Poly1305-managedNonce'
+ 
 
 
 export interface Chain {
@@ -122,59 +84,76 @@ export interface Chain {
 	testnet: boolean;
 }
 
-export type Fiat = {
-	name: string;
-	symbol: string;
-}
 
-export interface FiatRate {
-	timestamp: number;
-	EUR:number;
-	GBP:number;
-	JPY:number;
-	CNY:number;
-	KRW:number;
-	RUB:number;
-}
-
+// ok
 export interface CurrencyPrice {
 	timestamp: number;
 	BTC:number;
 	ETH:number;
-	DOT:number;
+	BNB:number;
+	POL:number;
 }
 
 
 
+export interface FiatRates {
+  timestamp: number;
 
-export interface UiState {
-  locale?: string;
-  dark_mode?: boolean;
-  current_account_index?: number;
-  next_account_index?: number;
-  next_watch_account_index?: number;
-  next_airgap_account_index?: number;
-  next_hdwallet_account_index?: number;
-  auto_lock?: boolean;
-  auto_lock_timer?: number; 
-  active_apps?: App[]|null;
-  currency?: string;
-  fiat?: string;
-  is_initialized?: boolean;
+  USD: number;
+  EUR: number;
+  GBP: number;
+  JPY: number;
+  CNY: number;
+  KRW: number;
+
+  SGD: number;
+  VND: number;
+  MYR: number;
+  IDR: number;
+  THB: number;
+  PHP: number;
+
+  INR: number;
+  PKR: number;
+
+  VES: number;
+  ARS: number;
+  BRL: number;
+  CLP: number;
+  COP: number;
+  PEN: number;
+
+  CHF: number;
+  CAD: number;
+  AUD: number;
+  NZD: number;
 }
 
-export const DefaultPersistentConfig: UiState= {
-  locale: 'en',
-  dark_mode: false,
-  current_account_index: 0,
-  next_account_index: 1,
-  next_watch_account_index: 101,
-  next_airgap_account_index: 201,
-  next_hdwallet_account_index: 301,
-  auto_lock: true,
-  auto_lock_timer: 900,
-  active_apps: null,
-  currency: "ETH",
-  fiat: "USD",
-  is_initialized: false,
-};
+export type FiatCode = keyof FiatRates;
+
+export interface Locales {
+  "zh-CN": boolean;
+  "zh-TW": boolean;
+  "ja-JP": boolean;
+  "ko-KR": boolean;
+
+  "en-SG": boolean;
+  "vi-VN": boolean;
+  "ms-MY": boolean;
+  "id-ID": boolean;
+
+  "en-IN": boolean;
+  "hi-IN": boolean;
+
+  "es-AR": boolean;
+  "es-VE": boolean;
+  "pt-BR": boolean;
+
+  "en-US": boolean;
+  "es-ES": boolean;
+  "fr-FR": boolean;
+  "de-DE": boolean;
+  "ru-RU": boolean;
+}
+
+export type Locale = keyof Locales;

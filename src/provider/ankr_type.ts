@@ -332,6 +332,7 @@ export interface Nft {
     quantity?: string;
     traits?: Trait[];
 }
+
 export interface GetNFTsByOwnerReply {
     owner: string;
     assets: Nft[];
