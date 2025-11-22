@@ -45,7 +45,6 @@ impl AppDB {
             TableKind::AddressBook.as_str(),
             TableKind::TxHistory.as_str(),
             TableKind::MsgHistory.as_str(),
-            TableKind::CustomRpc.as_str(),
         ];
 
         let cfs: Vec<_> = cf_names
@@ -70,7 +69,6 @@ pub enum TableKind {
     AddressBook,
     TxHistory,
     MsgHistory,
-    CustomRpc,
 }
 
 impl TableKind {
@@ -82,7 +80,6 @@ impl TableKind {
             TableKind::AddressBook => "addressbook",
             TableKind::TxHistory => "txhistory",
             TableKind::MsgHistory => "msghistory",
-            TableKind::CustomRpc => "customrpc",
         }
     }
 }

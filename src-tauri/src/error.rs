@@ -1,21 +1,30 @@
 use core::fmt;
 use tauri::ipc::InvokeError;
-use serde::Serialize;
+use serde::{Serialize,Deserialize};
+use reqwest::Error;
+
 
 use alloy_primitives::{ParseSignedError, ruint};
+use helios::client::ClientError;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize,Deserialize)]
 pub enum AppError {
     // Standard errors
     Io(std::io::Error),
     Parse(&'static str),
     JsonParseError(serde_json::Error),
+    NumberParseError(),
     HexDecodeError(hex::FromHexError),
     InvalidAddressLength(u64),
     InvalidNumber(std::num::ParseIntError),
     InvalidBytesHex(hex::FromHexError),
     InvalidBooleanParse(serde_json::Value),
-
+    
+    // Reqwest errors
+    ReqwestClientBuildError(reqwest::Error),
+    ReqwestClientConnectionError(reqwest::Error),
+    HttpsRpcError(u64, String),
+    
     //eip712
     Eip712MissingDomain,
     Eip712MissingTypes,
@@ -30,7 +39,7 @@ pub enum AppError {
     Eip712InvalidTypePrefix,
     Eip712ValueOverflow,
     Eip712DomainFallbackInvalid,
-
+    
     // Database errors
     DbNotInitialized,
     DbColumnFamilyNotFound,
@@ -41,15 +50,35 @@ pub enum AppError {
     DbKeyNotFound,
     DbAccountNotFound(u64),
     DbVaultNotFound(String),
-
+    
     // Wallet Core errors
     WalletCoreError(String),
     // state errors
     AlreadyInitialized,
     InvalidPassword,
-
-    // RPC errors
-    HttpsRpcError(String),
+    
+    // Helios errors
+    HeliosClientError(String),
+    HeliosInvalidUtf8,
+    HeliosInvalidJson,
+    HeliosInvalidAddress,
+    HeliosInvalidBlockTag,
+    HeliosInvalidCallRequest,
+    HeliosInvalidTransaction,
+    HeliosInvalidStoragePosition,
+    
+    // JSON RPC errors
+    JsonRpcInvalidResponse,
+    JsonRpcMissingResult,
+    JsonRpcInvalidId,
+    GatewayHostUnhealthy,
+    
+    // Parameter errors
+    MissingParam(usize),
+    InvalidParam(usize),
+    
+    // Unsupported method error
+    UnsupportedMethod(String),
 }
 
 impl fmt::Display for AppError {
@@ -58,11 +87,16 @@ impl fmt::Display for AppError {
             AppError::Io(e) => write!(f, "IO error: {}", e),
             AppError::Parse(s) => write!(f, "Parse error: {}", s),
             AppError::JsonParseError(e) => write!(f, "Json parse error:{}", e),
+            AppError::NumberParseError() => write!(f, "Number parse error"),
             AppError::HexDecodeError(e) => write!(f, "Hex decode error: {}", e),
             AppError::InvalidBooleanParse(e) => write!(f, "Invalid boolean parse: {}", e),
             AppError::InvalidAddressLength(e) => write!(f, "Invalid address: {}", e),
             AppError::InvalidNumber(e) => write!(f, "Invalid number: {}", e),
             AppError::InvalidBytesHex(e) => write!(f, "Invalid bytes hex: {}", e),
+            AppError::ReqwestClientBuildError(e) => write!(f, "Failed to create reqwest client: {}", e),
+            AppError::ReqwestClientConnectionError(e) => write!(f, "Reqwest client error: {}", e),
+            AppError::HttpsRpcError(code, message) => write!(f, "HTTPS RPC error {}: {}", code, message),
+            
             //eip712
             AppError::Eip712MissingDomain => write!(f, "EIP712 domain missing"),
             AppError::Eip712MissingTypes => write!(f, "EIP712 types missing"),
@@ -97,7 +131,29 @@ impl fmt::Display for AppError {
             // state errors
             AppError::AlreadyInitialized => write!(f, "Already initialized"),
             AppError::InvalidPassword => write!(f, "Invalid password"),
-            AppError::HttpsRpcError(e) => write!(f, "HTTPS RPC error: {}", e),
+
+            // Helios errors
+            AppError::HeliosClientError(e) => write!(f, "Helios client error: {}", e),
+            AppError::HeliosInvalidUtf8 => write!(f, "Invalid UTF-8 in request body"),
+            AppError::HeliosInvalidJson => write!(f, "Invalid JSON in request"),
+            AppError::HeliosInvalidAddress => write!(f, "Invalid address format"),
+            AppError::HeliosInvalidBlockTag => write!(f, "Invalid block tag"),
+            AppError::HeliosInvalidCallRequest => write!(f, "Invalid call request"),
+            AppError::HeliosInvalidTransaction => write!(f, "Invalid transaction format"),
+            AppError::HeliosInvalidStoragePosition => write!(f, "Invalid storage position"),
+
+            // JSON RPC errors
+            AppError::JsonRpcInvalidResponse => write!(f, "Invalid JSON RPC response"),
+            AppError::JsonRpcMissingResult => write!(f, "Missing result in JSON RPC response"),
+            AppError::JsonRpcInvalidId => write!(f, "Invalid ID in JSON RPC response"),
+            AppError::GatewayHostUnhealthy => write!(f, "Gateway host unhealthy"),
+            
+            // Parameter errors
+            AppError::MissingParam(index) => write!(f, "Missing parameter at index {}", index),
+            AppError::InvalidParam(index) => write!(f, "Invalid parameter at index {}", index),
+            
+            // Unsupported method error
+            AppError::UnsupportedMethod(method) => write!(f, "Unsupported method: {}", method),
         }
     }
 }
@@ -142,6 +198,12 @@ impl From<hex::FromHexError> for AppError {
 impl From<std::num::ParseIntError> for AppError {
     fn from(error: std::num::ParseIntError) -> Self {
         AppError::InvalidNumber(error)
+    }
+}
+
+impl From<ClientError> for AppError {
+    fn from(error: ClientError) -> Self {
+        AppError::HeliosClientError(error.to_string())
     }
 }
 

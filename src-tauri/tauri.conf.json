@@ -21,7 +21,8 @@
     ],
     "security": {
       "csp": "default-src 'none'; script-src 'self'; connect-src https:; img-src https: data:; style-src 'self' 'unsafe-inline';",
-      "capabilities": ["main_desktop", "main_mobile", "dapp-mobile", "dapp-desktop"]
+      "capabilities": ["main_desktop", "main_mobile", "dapp-mobile", "dapp-desktop"],
+      "dangerousDisableAssetCspModification": true
     }
   },
   "bundle": {
