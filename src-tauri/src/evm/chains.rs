@@ -1,6 +1,6 @@
 
 
-pub struct chain {
+pub struct Chain {
 	chain_id: u64,
 	name: String,
     currency_name: String,
@@ -18,6 +18,14 @@ pub const SUPPORTED_CHAINS: [chain; 2] = [
 		decimals: 18,
 		block_explorers: "https://etherscan.io/".to_string(),
 	},
+	chain {
+		chain_id: 10,
+		name: "Optimism".to_string(),
+		currency_name: "Ether".to_string(),
+		currency_symbol: "ETH".to_string(),
+		decimals: 18,
+		block_explorers: "https://optimistic.etherscan.io/".to_string(),
+		},
 	chain {
 		chain_id: 56,
 		name: "Binance Smart Chain".to_string(),

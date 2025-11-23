@@ -13,3 +13,7 @@ pub struct Token {
     pub logo_url: Option<String>,
     pub assets_type: Option<AssetsType>,
 }
+
+pub trait IntoInterToken {
+    fn into_inter(self) -> Token;
+}

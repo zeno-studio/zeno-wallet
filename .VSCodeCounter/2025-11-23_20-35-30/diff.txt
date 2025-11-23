@@ -1,0 +1,44 @@
+Date : 2025-11-23 20:35:30
+Directory : /home/qlt/zeno-wallet
+Total : 11 files,  877 codes, 90 comments, 135 blanks, all 1102 lines
+
+Languages
++----------+------------+------------+------------+------------+------------+
+| language | files      | code       | comment    | blank      | total      |
++----------+------------+------------+------------+------------+------------+
+| Rust     |          9 |        865 |         90 |        130 |      1,085 |
+| Markdown |          1 |         13 |          0 |          5 |         18 |
+| JSON     |          1 |         -1 |          0 |          0 |         -1 |
++----------+------------+------------+------------+------------+------------+
+
+Directories
++-----------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                | files      | code       | comment    | blank      | total      |
++-----------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                   |         11 |        877 |         90 |        135 |      1,102 |
+| src-tauri                                           |         11 |        877 |         90 |        135 |      1,102 |
+| src-tauri (Files)                                   |          1 |         -1 |          0 |          0 |         -1 |
+| src-tauri/src                                       |         10 |        878 |         90 |        135 |      1,103 |
+| src-tauri/src/core                                  |          1 |          5 |          0 |          2 |          7 |
+| src-tauri/src/evm                                   |          1 |        100 |         21 |         20 |        141 |
+| src-tauri/src/revm                                  |          6 |        542 |         57 |         77 |        676 |
+| src-tauri/src/rpc                                   |          2 |        231 |         12 |         36 |        279 |
++-----------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++-----------------------------------------------------+----------+------------+------------+------------+------------+
+| filename                                            | language | code       | comment    | blank      | total      |
++-----------------------------------------------------+----------+------------+------------+------------+------------+
+| /home/qlt/zeno-wallet/src-tauri/src/core/state.rs   | Rust     |          5 |          0 |          2 |          7 |
+| /home/qlt/zeno-wallet/src-tauri/src/evm/permit2.rs  | Rust     |        100 |         21 |         20 |        141 |
+| /home/qlt/zeno-wallet/src-tauri/src/revm/gas.rs     | Rust     |        276 |         28 |         31 |        335 |
+| /home/qlt/zeno-wallet/src-tauri/src/revm/mod.rs     | Rust     |          1 |          0 |          0 |          1 |
+| /home/qlt/zeno-wallet/src-tauri/src/revm/native.rs  | Rust     |         38 |         24 |         12 |         74 |
+| /home/qlt/zeno-wallet/src-tauri/src/revm/readme.md  | Markdown |         13 |          0 |          5 |         18 |
+| /home/qlt/zeno-wallet/src-tauri/src/revm/router.rs  | Rust     |         49 |          6 |          7 |         62 |
+| /home/qlt/zeno-wallet/src-tauri/src/revm/test.rs    | Rust     |        165 |         -1 |         22 |        186 |
+| /home/qlt/zeno-wallet/src-tauri/src/rpc/gateway.rs  | Rust     |         -1 |         -3 |         -7 |        -11 |
+| /home/qlt/zeno-wallet/src-tauri/src/rpc/gateway1.rs | Rust     |        232 |         15 |         43 |        290 |
+| /home/qlt/zeno-wallet/src-tauri/tauri.conf.json     | JSON     |         -1 |          0 |          0 |         -1 |
+| Total                                               |          |        877 |         90 |        135 |      1,102 |
++-----------------------------------------------------+----------+------------+------------+------------+------------+

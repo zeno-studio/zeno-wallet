@@ -1,20 +1,28 @@
-use serde::{Deserialize, Serialize};
-use tauri::State;
-use bincode::{Decode, Encode};
 use crate::core::db::{AppDB, TableKind, TableManager};
 use crate::error::AppError;
+use alloy_primitives::Address;
+use bincode::{Decode, Encode};
+use serde::{Deserialize, Serialize};
+use tauri::State;
 
 #[derive(Debug, Serialize, Deserialize, Clone, Encode, Decode, PartialEq)]
 pub struct AddressBookEntry {
     pub name: String,
-    pub address: String,
+    pub address: Address,
     pub category: String,
     pub memo: Option<String>,
+    pub chain_ids: Option<Vec<u64>>, // not eoa
 }
 
 impl AddressBookEntry {
-    pub fn new(name: String, address: String, category: String, memo: Option<String>) -> Self {
-        Self { name, address, category, memo }
+    pub fn new() -> Self {
+        Self {
+            name: "".to_string(),
+            address: Address::zero(),
+            category: "Contact".to_string(),
+            memo: None,
+            chain_ids: None,
+        }
     }
 }
 

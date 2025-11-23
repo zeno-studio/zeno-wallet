@@ -1,9 +1,10 @@
 
 use serde::{Serialize, Deserialize};
+use crate::data::tx::PendingTx;
 
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct PersistentConfig {
+pub struct Config {
     pub is_initialized: Option<bool>,
     pub locale: Option<String>,
     pub dark_mode: Option<bool>,
@@ -22,21 +23,20 @@ pub struct PersistentConfig {
     pub enable_ai_agent: Option<bool>,
     pub preferred_ai_provider: Option<String>,
     pub enable_notifications: Option<bool>,
-    pub enable_auto_update: Option<bool>,
-    pub enable_light_client: Option<bool>,
-    pub preferred_rpc_mode: Option<RpcMode>,       // Custom / Ankr / Infura / Light client
+    pub enable_auto_update: Option<bool>, // Custom / Ankr / Infura / Light client
     pub enable_browser_history: Option<bool>,
     pub enable_tx_history: Option<bool>,
-    pub enable_smart_swap: Option<bool>,
     pub slippage_tolerance: Option<f32>,           // 默认 0.5%
     pub enable_anti_mev: Option<bool>,            // 自动用 Flashbots / Eden
-    pub gas_price_multiplier: Option<f32>,         // 手动加价倍数（默认 1.2）
-    pub enable_transaction_simulation: Option<bool>,  
+    pub gas_price_multiplier: Option<f32>,    
+    pub enable_ai_chat: Option<bool>,
+    pub enable_ai_agent: Option<bool>,    
+    pub pending_tx: Option<PendingTx>, 
 }
 
 
 
-impl Default for PersistentConfig {
+impl Default for Config {
     fn default() -> Self {
         Self {
             is_initialized: Some(false),
@@ -49,63 +49,77 @@ impl Default for PersistentConfig {
             next_airgap_account_index: Some(201),
             next_hdwallet_account_index: Some(301),
             next_watch_account_index: Some(401),
-            wallet_lock_duration: Some(true),
-            screen_lock_duration: Some(900), // in seconds
+            enable_screen_lock: Some(false),
+            enable_biometric_auth: Some(false),
+            enable_ai_chat: Some(false),
+            enable_ai_agent: Some(false),
+            preferred_ai_provider: Some("openai".to_string()),
+            enable_notifications: Some(true),
+            enable_auto_update: Some(true),
+            enable_browser_history: Some(true),
+            enable_tx_history: Some(true),
+            slippage_tolerance: Some(0.5),
+            enable_anti_mev: Some(false),
+            gas_price_multiplier: Some(1.2),
+            screen_lock_duration: Some(180),
+            wallet_lock_duration: Some(900),
+            enable_ai_chat: (Some(false)),
+            enable_ai_agent: (Some(false)),
         }
     }
 }
 
 #[tauri::command]
-pub fn set_persistent_config_item(
+pub fn set_config_item(
     key: String,
     value: serde_json::Value,
     appdb: State<AppDB>,
     state: State<AppState>,
 ) -> Result<(), AppError> {
-    let mut persistent_config = state.persistent_config.lock().unwrap();
+    let mut config = state.config.lock().unwrap();
 
     // 根据 key 更新对应的字段,将配置项保存到数据库
     match key.as_str() {
         "locale" => {
             if let Some(locale) = value.as_str() {
-                persistent_config.locale = Some(locale.to_string());
+                config.locale = Some(locale.to_string());
 
                 config_set(key.clone(), value.clone(), appdb)?;
             }
         }
         "dark_mode" => {
             if let Some(dark_mode) = value.as_bool() {
-                persistent_config.dark_mode = Some(dark_mode);
+                config.dark_mode = Some(dark_mode);
                 config_set(key.clone(), value.clone(), appdb)?;
             }
         }
         "current_account_index" => {
             if let Some(index) = value.as_u64() {
-                persistent_config.current_account_index = Some(index);
+                config.current_account_index = Some(index);
                 config_set(key.clone(), value.clone(), appdb)?;
             }
         }
         "wallet_lock_duration" => {
             if let Some(wallet_lock_duration) = value.as_bool() {
-                persistent_config.wallet_lock_duration = Some(wallet_lock_duration);
+                config.wallet_lock_duration = Some(wallet_lock_duration);
                 config_set(key.clone(), value.clone(), appdb)?;
             }
         }
         "screen_lock_duration" => {
             if let Some(timer) = value.as_u64() {
-                persistent_config.screen_lock_duration = Some(timer);
+                config.screen_lock_duration = Some(timer);
                 config_set(key.clone(), value.clone(), appdb)?;
             }
         }
         "currency" => {
             if let Some(currency) = value.as_str() {
-                persistent_config.currency = Some(currency.to_string());
+                config.currency = Some(currency.to_string());
                 config_set(key.clone(), value.clone(), appdb)?;
             }
         }
         "fiat" => {
             if let Some(fiat) = value.as_str() {
-                persistent_config.fiat = Some(fiat.to_string());
+                config.fiat = Some(fiat.to_string());
                 config_set(key.clone(), value.clone(), appdb)?;
             }
         }
@@ -144,7 +158,7 @@ pub fn config_set(key: String, value: serde_json::Value, appdb: State<AppDB>) ->
 }
 
 // reserve function for backup
-pub fn config_batch_set(cfg: PersistentConfig, appdb: State<AppDB>) -> DbResult<()> {
+pub fn config_batch_set(cfg: Config, appdb: State<AppDB>) -> DbResult<()> {
     let db = appdb.db.as_ref();
     let mut batch = WriteBatch::default();
 
@@ -219,10 +233,10 @@ pub fn config_batch_set(cfg: PersistentConfig, appdb: State<AppDB>) -> DbResult<
 }
 
 // reserve function for backup
-pub fn config_batch_get(appdb: State<AppDB>) -> DbResult<PersistentConfig> {
+pub fn config_batch_get(appdb: State<AppDB>) -> DbResult<Config> {
     let db = appdb.db.as_ref();
     let mgr = TableManager::new(db, TableKind::Config)?;
-    let mut cfg = PersistentConfig::default();
+    let mut cfg = Config::default();
 
     cfg.locale = mgr.get::<String>(&make_config_key("locale"))?;
     cfg.dark_mode = mgr.get::<bool>(&make_config_key("dark_mode"))?;

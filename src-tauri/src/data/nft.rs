@@ -18,4 +18,3 @@ pub struct Nft {
 pub trait IntoInterNft {
     fn into_inter(self) -> Nft;
 }
-

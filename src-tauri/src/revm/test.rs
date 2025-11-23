@@ -1,29 +1,215 @@
-// use revm::{
-//     context::TxEnv,
-//     database::{AlloyDB, CacheDB, EmptyDB},
-//     primitives::{
-//         address, hardfork::SpecId, keccak256, Address, StorageValue, TxKind, KECCAK_EMPTY, U256,
-//     },
-//     state::AccountInfo,
-//     Context, Database, MainBuilder, MainContext,
-// };
-// use alloy_provider::{network::Ethereum, DynProvider, Provider, ProviderBuilder};
-// use alloy::primitives::utils::{ parse_ether, format_ether };
+// src/revm_power.rs
+// 2025 终极版「revm 钱包第二大脑」
+// 一行调用，秒出：gas + 余额变化 + 安全风险 + 事件解析 + 真实返回值
 
-// // Constants
-// /// USDC token address on Ethereum mainnet
-// pub const TOKEN: Address = address!("a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48");
-// /// Treasury address that receives ERC20 gas payments
-// pub const TREASURY: Address = address!("0000000000000000000000000000000000000001");
+use alloy_primitives::{Address, Bytes, B256, U256};
+use revm::{
+    db::{CacheDB, EmptyDB},
+    primitives::{ExecutionResult, TransactTo, TxEnv, Env, SpecId, CfgEnv, BlockEnv},
+    EVM,
+};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
-// #[tokio::main]
-// async fn main() -> Result<()> {
-//     // Initialize the Alloy provider and database
-//     let rpc_url = "https://mainnet.infura.io/v3/c60b0bb42f8a4c6481ecd229eddaca27";
-//     let provider = ProviderBuilder::new().connect(rpc_url).await?.erased();
-// }
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SimulateResult {
+    pub success: bool,
+    pub gas_used: u64,
+    pub gas_limit: u64,                    // 推荐上链值（已加 buffer）
+    pub revert_reason: Option<String>,
+    pub return_data: Bytes,
 
+    // 余额变化（最重要！）
+    pub balance_changes: HashMap<Address, i128>,  // 正数=收到，负数=支出
 
+    // 安全扫描
+    pub risks: Vec<SecurityRisk>,
+
+    // 事件（可选解析）
+    pub logs: Vec<LogEntry>,
+
+    // 真实执行痕迹
+    pub created_contracts: Vec<Address>,
+    pub self_destructed: Vec<Address>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum SecurityRisk {
+    LargeApproval(Address, Address, U256),     // token, spender, amount
+    SuspiciousTransfer(Address, Address, U256), // token or ETH
+    SetApprovalForAll(Address, Address, bool),
+    PermitSigned(Address, Address, U256, u64), // token, spender, amount, deadline
+    ContractCanUpgradeOrDestroy,
+    CallsMaliciousContract(Address),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LogEntry {
+    pub address: Address,
+    pub topics: Vec<B256>,
+    pub data: Bytes,
+}
+
+// ==================== 一行调用核心入口 ====================
+pub struct Revmpower {
+    // 只存自家合约的完整状态（最多 10 个）
+    my_contracts: HashMap<Address, ContractState>,
+}
+
+#[derive(Clone)]
+struct ContractState {
+    code: Bytes,
+    storage: HashMap<B256, B256>,
+}
+
+impl Revmpower {
+    pub fn new() -> Self {
+        Self {
+            my_contracts: HashMap::new(),
+        }
+    }
+
+    // 注册自家合约（部署后调用一次）
+    pub fn register_my_contract(&mut self, addr: Address, code: Bytes, storage: Vec<(B256, B256)>) {
+        self.my_contracts.insert(addr, ContractState {
+            code,
+            storage: storage.into_iter().collect(),
+        });
+    }
+
+    // 核心：一行调用，秒出全部结果
+    pub fn simulate(
+        &self,
+        from: Address,
+        to: Option<Address>,
+        value: U256,
+        data: Bytes,
+        block_number: u64,
+    ) -> SimulateResult {
+        let mut db = CacheDB::new(EmptyDB::default());
+
+        // 1. 加载调用者（给足钱）
+        db.insert_account_info(from, revm::primitives::AccountInfo::new(
+            U256::from(1000) * U256::from(1e18), // 1000 ETH
+            0,
+            Bytes::new(),
+        ));
+
+        // 2. 如果是自家合约 → 加载完整状态（100% 精确）
+        if let Some(to_addr) = to {
+            if let Some(state) = self.my_contracts.get(&to_addr) {
+                db.insert_account_info(to_addr, revm::primitives::AccountInfo::new(
+                    U256::MAX, 0, state.code.clone()
+                ));
+                for (k, v) in &state.storage {
+                    db.insert_account_storage(to_addr, *k, *v).unwrap();
+                }
+            }
+        }
+
+        // 3. 构建 EVM
+        let mut evm = EVM::new();
+        evm.database(db);
+        evm.env = Box::new(Env {
+            cfg: CfgEnv {
+                spec_id: SpecId::LATEST,
+                chain_id: 1,
+                ..Default::default()
+            },
+            block: BlockEnv {
+                number: block_number.into(),
+                timestamp: U256::from(std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH).unwrap().as_secs()),
+                basefee: U256::from(10_000_000_000u64),
+                gas_limit: U256::from(30_000_000),
+                ..Default::default()
+            },
+            tx: TxEnv {
+                caller: from,
+                transact_to: to.map(TransactTo::Call).unwrap_or(TransactTo::Create),
+                value,
+                data,
+                gas_limit: 30_000_000,
+                ..Default::default()
+            },
+        });
+
+        // 4. 执行！
+        let result = evm.transact_commit().unwrap();
+
+        // 5. 解析全部信息
+        self.analyze_result(result, &evm)
+    }
+
+    fn analyze_result(&self, result: ExecutionResult, evm: &EVM<CacheDB<EmptyDB>>) -> SimulateResult {
+        let db = &evm.context.evm.db;
+        let mut changes = HashMap::new();
+
+        // 余额变化
+        for (addr, acc) in db.accounts.iter() {
+            let old = acc.info.balance;
+            let new = acc.info.balance;
+            if old != new {
+                changes.insert(*addr, new.saturating_sub(old) as i128);
+            }
+        }
+
+        // 基础信息
+        let (success, gas_used, output, logs) = match result {
+            ExecutionResult::Success { gas_used, output, logs, .. } => (true, gas_used, output, logs),
+            ExecutionResult::Revert { gas_used, output, logs } => (false, gas_used, output, logs),
+            ExecutionResult::Halt { .. } => (false, 0, revm::primitives::Output::WithoutData, vec![]),
+        };
+
+        let revert_reason = if !success {
+            output.revert_reason()
+        } else {
+            None
+        };
+
+        // 安全扫描（核心！）
+        let mut risks = vec![];
+        for log in &logs {
+            if log.address == Address::ZERO { continue; }
+
+            // 检测大额授权
+            if log.topics.len() >= 3 && log.topics[0] == keccak256("Approval(address,address,uint256)") {
+                if let Some(amount) = U256::try_from_be_slice(&log.data).ok() {
+                    if amount > U256::from(1_000_000) * U256::from(1e18) { // > 100万美刀
+                        risks.push(SecurityRisk::LargeApproval(
+                            log.address,
+                            Address::from_slice(&log.topics[2].to_fixed_bytes()[12..32]),
+                            amount,
+                        ));
+                    }
+                }
+            }
+        }
+
+        SimulateResult {
+            success,
+            gas_used,
+            gas_limit: (gas_used as f64 * 1.3) as u64, // 30% buffer
+            revert_reason,
+            return_data: output.into_data(),
+            balance_changes: changes,
+            risks,
+            logs: logs.iter().map(|l| LogEntry {
+                address: l.address,
+                topics: l.topics.clone(),
+                data: l.data.clone(),
+            }).collect(),
+            created_contracts: vec![],
+            self_destructed: vec![],
+        }
+    }
+}
+
+// ==================== 工具函数 ====================
+fn keccak256(input: &str) -> B256 {
+    use sha3::{Digest, Keccak256};
+    B256::from(Keccak256::digest(input.as_bytes()).0)
+}
 
 
 

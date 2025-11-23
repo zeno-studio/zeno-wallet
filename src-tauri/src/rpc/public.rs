@@ -28,6 +28,11 @@ static PUBLIC_NODES: Lazy<HashMap<&'static str, Vec<PublicRpcNode>>> = Lazy::new
         PublicRpcNode { url: "https://eth.llamarpc.com".to_string(), source: "llamarpc".into() },
         PublicRpcNode { url: "https://rpc.ankr.com/eth".to_string(), source: "ankr".into() },
     ]);
+    m.insert("optimism", vec![
+        PublicRpcNode { url: "https://mainnet.optimism.io".to_string(), source: "official".into() },
+        PublicRpcNode { url: "https://optimism.drpc.org".to_string(), source: "drpc".into() },
+        PublicRpcNode { url: "https://public-op-mainnet.fastnode.io".to_string(), source: "fastnode".into() },
+    ]);
 
     // Base
     m.insert("base", vec![

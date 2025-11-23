@@ -6,3 +6,4 @@ pub mod currency;
 pub mod ens;
 pub mod contract;
 pub mod nft;
+pub mod token;
