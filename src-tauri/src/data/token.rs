@@ -12,6 +12,7 @@ pub struct Token {
     pub decimals: u64, 
     pub logo_url: Option<String>,
     pub assets_type: Option<AssetsType>,
+    pub contract_address: Option<Address>,
 }
 
 pub trait IntoInterToken {

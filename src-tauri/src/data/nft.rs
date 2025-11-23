@@ -14,6 +14,7 @@ pub struct Nft {
     pub token_uri: Option<String>,
     pub collection: Option<String>,
     pub assets_type: Option<AssetsType>,
+    pub contract_address: Option<Address>,
 }
 pub trait IntoInterNft {
     fn into_inter(self) -> Nft;

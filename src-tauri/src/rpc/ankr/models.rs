@@ -9,6 +9,38 @@ use serde_json::json;
 use std::collections::HashMap;
 use std::str::FromStr;
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Log {
+    pub address: String,
+    pub topics: Vec<String>,
+    pub data: String,
+    #[serde(rename = "blockNumber")]
+    pub block_number: String,
+    #[serde(rename = "transactionHash")]
+    pub transaction_hash: String,
+    #[serde(rename = "transactionIndex")]
+    pub transaction_index: String,
+    #[serde(rename = "blockHash")]
+    pub block_hash: String,
+    #[serde(rename = "logIndex")]
+    pub log_index: String,
+    #[serde(rename = "removed")]
+    pub removed: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct Method {
+    pub name: String,
+    pub inputs: Vec<MethodInput>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct MethodInput {
+    pub name: String,
+    #[serde(rename = "type")]
+    pub type_: String,
+}
+
 pub enum AnkrBlockchain {
     Eth,
     Optimism,
@@ -89,16 +121,21 @@ pub struct AnkrBalance {
     pub thumbnail: String,
 }
 
-impl IntoInteroken for AnkrBalance {
+impl IntoInterToken for AnkrBalance {
     fn into_inter(self) -> Token {
-        AssetsType {
+        let logo_url = self.thumbnail;
+        let assets_type = self.token_type.as_ref().map(|token_type| mapper_assets_type(token_type.clone()));
+        let contract_address = self.contract_address.as_ref().map(|addr| Address::from_str(addr).unwrap_or(Address::ZERO));
+        
+        Token {
             chain_id: self.blockchain.to_chain_id(),
-            address: Address::from_str(&self.contract_address).unwrap_or(Address::ZERO),
+            address: contract_address.unwrap_or(Address::ZERO),
             name: self.token_name,
             symbol: self.token_symbol,
             decimals: self.token_decimals,
-            logo_url: Some(self.thumbnail),
-            assets_type: Some(mapper_assets_type(self.token_type)),
+            logo_url: logo_url,
+            assets_type: assets_type,
+            contract_address: contract_address
         }
     }
 }
@@ -186,28 +223,24 @@ pub struct AnkrNft {
 
 impl IntoInterNft for AnkrNft {
     fn into_inter(self) -> Nft {
+        let token_id = str_to_u64(&self.token_id);
+        let quantity = self.quantity.as_ref().map(|q| str_to_u64(q));
+        let assets_type = self.contract_type.into_inter();
+
         Nft {
             chain_id: self.blockchain.to_chain_id(),
             address: Address::from_str(&self.contract_address).unwrap_or(Address::ZERO),
             name: self.name,
             symbol: self.symbol,
-            token_id: self.token_id,
-            quantity: self.quantity,
-            token_uri: self.image_url,
-            collection: self.collection_name,
-            assets_type: self.contract_type.into_inter(),
+            token_id: Some(token_id),
+            quantity,
+            token_uri: Some(self.image_url),
+            collection: Some(self.collection_name),
+            assets_type: Some(assets_type)
         }
     }
 }
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct GetNFTsByOwnerReply {
-    pub owner: String,
-    pub assets: Vec<AnkrNft>,
-    #[serde(rename = "nextPageToken")]
-    pub next_page_token: String,
-    #[serde(rename = "syncStatus")]
-    pub sync_status: Option<SyncStatus>,
-}
+
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum NftContractType {
@@ -243,7 +276,7 @@ pub struct GetNFTsByOwnerRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct GetNFTsByOwnerReply1 {
+pub struct GetNFTsByOwnerReply {
     pub owner: String,
     pub assets: Vec<AnkrNft>,
     #[serde(rename = "nextPageToken")]
