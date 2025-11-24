@@ -1,6 +1,11 @@
 
 use serde::{Serialize, Deserialize};
 
+// 免费api： https://api.exchangerate-api.com/v4/latest/USD
+
+let url = "https://api.exchangerate.host/latest?base=USD";
+let rates = reqwest::get(url).await?.json::<Rates>().await?;
+
 /// 法币汇率（相对 USD 或其它主货币）
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FiatRates {

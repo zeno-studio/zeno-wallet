@@ -56,10 +56,12 @@ hex = "0.4.3"
 base64 = "0.22.1"
 piper-rs = "0.1.9"
 whisper-rs = "0.15.1"
+getrandom = "0.3.4"
 
 z_wallet_core = { git = "https://github.com/zeno-studio/z-wallet-core.git", branch = "master" }
 helios = { git = "https://github.com/a16z/helios", tag = "0.10.2" }
-getrandom = "0.3.4"
+
+graphql_client = "0.14.0"
 
 [target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
 tauri-plugin-barcode-scanner = "2.4.2"
